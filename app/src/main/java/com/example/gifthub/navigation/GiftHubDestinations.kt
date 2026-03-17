@@ -6,4 +6,8 @@ object GiftHubDestinations {
     const val PRODUCTS = "products"
     const val PROFILE = "profile"
     const val FAVORITES = "favorites"
+    const val NOTIFICATIONS = "notifications"
+    const val CHECKOUT = "checkout"
+
+
 }

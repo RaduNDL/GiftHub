@@ -78,7 +78,7 @@ fun ProductsScreen(
                     IconButton(onClick = { onNavigate(GiftHubDestinations.FAVORITES) }) {
                         Icon(Icons.Default.FavoriteBorder, contentDescription = "Favorites")
                     }
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = {onNavigate(GiftHubDestinations.NOTIFICATIONS) }) {
                         Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
                     }
                     IconButton(onClick = { onNavigate(GiftHubDestinations.PROFILE) }) {
