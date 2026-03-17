@@ -11,6 +11,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.gifthub.navigation.GiftHubDestinations
 
 @Composable
@@ -48,5 +49,5 @@ fun GiftHubBottomBar(
 private data class BottomNavItem(
     val label: String,
     val route: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: ImageVector
 )

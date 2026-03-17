@@ -1,6 +1,7 @@
 package com.example.gifthub.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -41,8 +41,8 @@ fun HomeScreen(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
-    val categories = listOf("Category 1", "Category 2", "Category 3")
-    val products = listOf("Product 1", "Product 2", "Product 3")
+    val categories = listOf("Birthday", "Romantic", "Luxury", "Flowers")
+    val featuredProducts = listOf("Gift Box", "Personalized Mug", "Flower Set")
 
     Scaffold(
         bottomBar = {
@@ -90,27 +90,45 @@ fun HomeScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "Categories",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     items(categories) { category ->
-                        CategoryItem(title = category)
+                        CategoryItem(
+                            title = category,
+                            onClick = { onNavigate(GiftHubDestinations.PRODUCTS) }
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(28.dp))
 
+                Text(
+                    text = "Featured",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    products.forEach { product ->
+                    featuredProducts.forEach { product ->
                         ProductCard(
                             title = product,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onNavigate(GiftHubDestinations.PRODUCTS) }
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -120,8 +138,14 @@ fun HomeScreen(
 }
 
 @Composable
-private fun CategoryItem(title: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun CategoryItem(
+    title: String,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
         Box(
             modifier = Modifier
                 .size(68.dp)
@@ -141,12 +165,10 @@ private fun CategoryItem(title: String) {
 @Composable
 private fun ProductCard(
     title: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
-        onClick = onClick,
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

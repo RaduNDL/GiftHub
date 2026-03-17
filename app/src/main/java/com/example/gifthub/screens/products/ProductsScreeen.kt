@@ -47,7 +47,14 @@ fun ProductsScreen(
     onNavigate: (String) -> Unit
 ) {
     val searchText = remember { mutableStateOf("") }
-    val products = listOf("Product 1", "Product 2", "Product 3", "Product 4")
+    val products = listOf(
+        "Luxury Gift Box",
+        "Personalized Mug",
+        "Elegant Flower Set",
+        "Birthday Surprise Pack",
+        "Chocolate Premium Box",
+        "Teddy Bear Deluxe"
+    )
 
     Scaffold(
         bottomBar = {
@@ -78,7 +85,7 @@ fun ProductsScreen(
                     IconButton(onClick = { onNavigate(GiftHubDestinations.FAVORITES) }) {
                         Icon(Icons.Default.FavoriteBorder, contentDescription = "Favorites")
                     }
-                    IconButton(onClick = {onNavigate(GiftHubDestinations.NOTIFICATIONS) }) {
+                    IconButton(onClick = { onNavigate(GiftHubDestinations.NOTIFICATIONS) }) {
                         Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
                     }
                     IconButton(onClick = { onNavigate(GiftHubDestinations.PROFILE) }) {
@@ -90,7 +97,7 @@ fun ProductsScreen(
                     value = searchText.value,
                     onValueChange = { searchText.value = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search") },
+                    placeholder = { Text("Search products") },
                     trailingIcon = {
                         Icon(Icons.Default.Search, contentDescription = "Search")
                     },
@@ -99,7 +106,7 @@ fun ProductsScreen(
                 )
 
                 Text(
-                    text = "Filtered",
+                    text = "More Products",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 18.dp, bottom = 18.dp)

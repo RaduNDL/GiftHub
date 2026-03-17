@@ -6,19 +6,24 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.gifthub.screens.address.ManageAddressScreen
 import com.example.gifthub.screens.cart.CartScreen
 import com.example.gifthub.screens.checkout.CheckoutScreen
 import com.example.gifthub.screens.favorites.FavoritesScreen
 import com.example.gifthub.screens.home.HomeScreen
 import com.example.gifthub.screens.notifications.NotificationsScreen
+import com.example.gifthub.screens.orders.OrderHistoryScreen
+import com.example.gifthub.screens.payments.SavedPaymentsScreen
 import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
+import com.example.gifthub.screens.wishlist.MyWishlistScreen
 
 @Composable
 fun GiftHubNavGraph() {
     val navController = rememberNavController()
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-        ?: GiftHubDestinations.HOME
+    val currentRoute =
+        navController.currentBackStackEntryAsState().value?.destination?.route
+            ?: GiftHubDestinations.HOME
 
     NavHost(
         navController = navController,
@@ -115,7 +120,29 @@ fun GiftHubNavGraph() {
             )
         }
 
+        composable(GiftHubDestinations.ORDER_HISTORY) {
+            OrderHistoryScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
 
+        composable(GiftHubDestinations.MY_WISHLIST) {
+            MyWishlistScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(GiftHubDestinations.MANAGE_ADDRESS) {
+            ManageAddressScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(GiftHubDestinations.SAVED_PAYMENTS) {
+            SavedPaymentsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 

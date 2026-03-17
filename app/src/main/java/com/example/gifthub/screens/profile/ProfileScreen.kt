@@ -40,6 +40,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+<<<<<<< HEAD
+=======
+import androidx.compose.ui.graphics.vector.ImageVector
+>>>>>>> 674696e (update navigation + all screens working)
 import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.ui.components.GiftHubBottomBar
 
@@ -241,9 +245,14 @@ private fun ProfileOptionCard(
     onClick: () -> Unit
 ) {
     Card(
+<<<<<<< HEAD
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
+=======
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+>>>>>>> 674696e (update navigation + all screens working)
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -305,6 +314,10 @@ private fun ProfileOptionCard(
 private data class ProfileOptionUi(
     val title: String,
     val subtitle: String,
+<<<<<<< HEAD
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
+=======
+    val icon: ImageVector,
+>>>>>>> 674696e (update navigation + all screens working)
     val route: String
 )
