@@ -12,17 +12,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-<<<<<<< HEAD
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-=======
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
->>>>>>> 674696e (update navigation + all screens working)
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Card
@@ -46,17 +40,10 @@ fun MyWishlistScreen(
 ) {
     val wishlistItems = remember {
         listOf(
-<<<<<<< HEAD
-            WishlistUi("Luxury Watch Box", "$59.99"),
-            WishlistUi("Custom Teddy Bear", "$34.50"),
-            WishlistUi("Elegant Flower Set", "$27.90"),
-            WishlistUi("Gift Surprise Package", "$74.00")
-=======
             WishlistUi("Custom Photo Frame", "$24.99"),
             WishlistUi("Romantic Gift Basket", "$59.90"),
             WishlistUi("Luxury Chocolate Box", "$19.50"),
             WishlistUi("Birthday Surprise Set", "$42.00")
->>>>>>> 674696e (update navigation + all screens working)
         )
     }
 
@@ -80,7 +67,7 @@ fun MyWishlistScreen(
                 ) {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -94,11 +81,7 @@ fun MyWishlistScreen(
                     )
                 }
 
-<<<<<<< HEAD
-                Spacer(modifier = Modifier.size(20.dp))
-=======
                 Spacer(modifier = Modifier.size(18.dp))
->>>>>>> 674696e (update navigation + all screens working)
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -128,27 +111,16 @@ private fun WishlistCard(item: WishlistUi) {
         ) {
             Box(
                 modifier = Modifier
-<<<<<<< HEAD
-                    .size(84.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(22.dp)
-=======
                     .size(86.dp)
                     .background(
                         color = MaterialTheme.colorScheme.primaryContainer,
                         shape = RoundedCornerShape(20.dp)
->>>>>>> 674696e (update navigation + all screens working)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.ShoppingBag,
                     contentDescription = item.title,
-<<<<<<< HEAD
-                    modifier = Modifier.size(34.dp),
-=======
->>>>>>> 674696e (update navigation + all screens working)
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
@@ -168,25 +140,15 @@ private fun WishlistCard(item: WishlistUi) {
 
                 Text(
                     text = item.price,
-<<<<<<< HEAD
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-=======
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
->>>>>>> 674696e (update navigation + all screens working)
                 )
             }
 
             Icon(
                 imageVector = Icons.Default.Favorite,
-<<<<<<< HEAD
-                contentDescription = "Favorite",
-=======
                 contentDescription = "Wishlist",
->>>>>>> 674696e (update navigation + all screens working)
                 tint = MaterialTheme.colorScheme.primary
             )
         }
