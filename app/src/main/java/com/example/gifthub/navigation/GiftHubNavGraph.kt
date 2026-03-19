@@ -16,7 +16,6 @@ import com.example.gifthub.screens.orders.OrderHistoryScreen
 import com.example.gifthub.screens.payments.SavedPaymentsScreen
 import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
-import com.example.gifthub.screens.wishlist.MyWishlistScreen
 
 @Composable
 fun GiftHubNavGraph() {
@@ -122,12 +121,6 @@ fun GiftHubNavGraph() {
 
         composable(GiftHubDestinations.ORDER_HISTORY) {
             OrderHistoryScreen(
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(GiftHubDestinations.MY_WISHLIST) {
-            MyWishlistScreen(
                 onBack = { navController.popBackStack() }
             )
         }

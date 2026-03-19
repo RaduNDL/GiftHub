@@ -57,10 +57,10 @@ fun ProfileScreen(
                 route = GiftHubDestinations.ORDER_HISTORY
             ),
             ProfileOptionUi(
-                title = "My Wishlist",
+                title = "Wishlist",
                 subtitle = "See the products you saved",
                 icon = Icons.Default.FavoriteBorder,
-                route = GiftHubDestinations.MY_WISHLIST
+                route = GiftHubDestinations.FAVORITES
             ),
             ProfileOptionUi(
                 title = "Manage Address",
