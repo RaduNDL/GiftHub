@@ -34,7 +34,10 @@ class NotificationRepository {
                         title = doc.getString("title") ?: "",
                         message = doc.getString("message") ?: "",
                         createdDate = doc.getLong("createdDate") ?: 0L,
-                        markedAsRead = doc.getBoolean("markedAsRead") ?: false
+                        markedAsRead = doc.getBoolean("markedAsRead") ?: false,
+                        type = doc.getString("type") ?: "giftHubNotification",
+                        targetRoute = doc.getString("targetRoute") ?: "order_history",
+                        orderId = doc.getString("orderId") ?: ""
                     )
                 }
                 onSuccess(notifications)

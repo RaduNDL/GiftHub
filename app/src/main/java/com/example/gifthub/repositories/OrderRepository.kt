@@ -107,7 +107,6 @@ class OrderRepository {
                 )
 
                 recalculatedTotal += productPrice * item.quantity
-
                 transaction.delete(cartItemsCollection(uid).document(item.productId))
             }
 
@@ -128,8 +127,8 @@ class OrderRepository {
             val notificationData = hashMapOf<String, Any>(
                 "notificationID" to notificationRef.id,
                 "userId" to uid,
-                "title" to "Order Placed",
-                "message" to "Your order #${orderRef.id.take(8).uppercase()} has been placed successfully!",
+                "title" to "Order placed",
+                "message" to "Your order #${orderRef.id.take(8).uppercase()} was placed successfully.",
                 "createdDate" to System.currentTimeMillis(),
                 "markedAsRead" to false,
                 "type" to "order_created",
@@ -220,8 +219,8 @@ class OrderRepository {
                         val notificationData = hashMapOf<String, Any>(
                             "notificationID" to notificationRef.id,
                             "userId" to userId,
-                            "title" to "Order Updated",
-                            "message" to "Your order #${orderId.take(8).uppercase()} status: $newStatus",
+                            "title" to "Order updated",
+                            "message" to "Your order #${orderId.take(8).uppercase()} is now '$newStatus'.",
                             "createdDate" to System.currentTimeMillis(),
                             "markedAsRead" to false,
                             "type" to "order_status_updated",

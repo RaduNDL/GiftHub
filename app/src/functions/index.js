@@ -17,8 +17,6 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
     const userId = event.params.userId;
     const notificationId = event.params.notificationId;
 
-    logger.info("Notification trigger fired.", { userId, notificationId, notificationData });
-
     const userRef = admin.firestore().collection("users").doc(userId);
     const userDoc = await userRef.get();
 
@@ -28,7 +26,6 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
     }
 
     const fcmToken = userDoc.get("fcmToken");
-
     if (!fcmToken) {
       logger.warn("Missing fcmToken on user document.", { userId });
       return;
@@ -53,18 +50,10 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
         },
         android: {
           priority: "high"
-        },
-        notification: {
-          title,
-          body
         }
       });
 
-      logger.info("Push sent successfully.", {
-        userId,
-        notificationId,
-        response
-      });
+      logger.info("Push sent successfully.", { userId, notificationId, response });
     } catch (error) {
       logger.error("Push send failed.", {
         userId,

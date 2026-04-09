@@ -10,11 +10,9 @@ object PushTokenManager {
 
     fun syncCurrentToken() {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-
-        FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { token ->
-                saveTokenForUser(uid, token)
-            }
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            saveTokenForUser(uid, token)
+        }
     }
 
     fun saveTokenForCurrentUser(token: String) {
@@ -24,7 +22,6 @@ object PushTokenManager {
 
     fun clearTokenForCurrentUser(onComplete: () -> Unit = {}) {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return onComplete()
-
         FirebaseFirestore.getInstance()
             .collection("users")
             .document(uid)
@@ -34,7 +31,6 @@ object PushTokenManager {
 
     private fun saveTokenForUser(uid: String, token: String) {
         if (token.isBlank()) return
-
         FirebaseFirestore.getInstance()
             .collection("users")
             .document(uid)
