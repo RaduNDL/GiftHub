@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "577805890313",
+    "project_id": "gifthub-123",
+    "storage_bucket": "gifthub-123.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577805890313:android:ebd5358d4200f9095d99d8",
+        "android_client_info": {
+          "package_name": "com.example.gifthub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-skNNY_vWgdWHf4xozYtFCmG3e1AJlSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -18,39 +18,64 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.example.gifthub.data.FirebaseAuthProvider
+import com.example.gifthub.models.ProductDto
 import com.example.gifthub.ui.components.GiftHubBottomBar
+import com.example.gifthub.viewmodel.AuthViewModel
+import com.example.gifthub.viewmodel.FavoriteViewModel
+import java.util.Locale
 
 @Composable
 fun FavoritesScreen(
     currentRoute: String,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    authViewModel: AuthViewModel,
+    favoriteViewModel: FavoriteViewModel = viewModel()
 ) {
-    val favorites = remember {
-        listOf(
-            FavoriteUi("Luxury Gift Box", "$49.99"),
-            FavoriteUi("Personalized Mug", "$18.50"),
-            FavoriteUi("Elegant Flower Set", "$32.00"),
-            FavoriteUi("Surprise Teddy Bear", "$27.90")
-        )
+    val currentUserId = FirebaseAuthProvider.auth.currentUser?.uid ?: ""
+    val favorites = favoriteViewModel.favoriteProducts
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotBlank()) {
+            favoriteViewModel.loadFavoriteProducts(currentUserId)
+        }
+    }
+
+    LaunchedEffect(favoriteViewModel.userMessage) {
+        favoriteViewModel.userMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            favoriteViewModel.clearUserMessage()
+        }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             GiftHubBottomBar(
                 currentRoute = currentRoute,
@@ -84,8 +109,34 @@ fun FavoritesScreen(
                     FavoritesSummaryCard(itemCount = favorites.size)
                 }
 
-                items(favorites) { product ->
-                    FavoriteRow(product = product)
+                if (favoriteViewModel.isLoading) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else if (favorites.isEmpty()) {
+                    item {
+                        EmptyFavoritesState()
+                    }
+                } else {
+                    items(favorites) { product ->
+                        FavoriteRow(
+                            product = product,
+                            onRemoveFavorite = {
+                                favoriteViewModel.removeFromFavorites(
+                                    userId = currentUserId,
+                                    productId = product.idProduct,
+                                    productName = product.name
+                                )
+                            }
+                        )
+                    }
                 }
 
                 item {
@@ -171,7 +222,10 @@ private fun FavoritesSummaryCard(itemCount: Int) {
 }
 
 @Composable
-private fun FavoriteRow(product: FavoriteUi) {
+private fun FavoriteRow(
+    product: ProductDto,
+    onRemoveFavorite: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -184,21 +238,32 @@ private fun FavoriteRow(product: FavoriteUi) {
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(92.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(22.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ShoppingBag,
-                    contentDescription = product.title,
-                    modifier = Modifier.size(34.dp),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+            if (product.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(RoundedCornerShape(22.dp)),
+                    contentScale = ContentScale.Crop
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(22.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingBag,
+                        contentDescription = product.name,
+                        modifier = Modifier.size(34.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.size(18.dp))
@@ -207,31 +272,65 @@ private fun FavoriteRow(product: FavoriteUi) {
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = product.title,
+                    text = product.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 Spacer(modifier = Modifier.size(6.dp))
 
                 Text(
-                    text = product.price,
+                    text = "$${String.format(Locale.US, "%.2f", product.price)}",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.FavoriteBorder,
-                contentDescription = "Favorite item",
-                tint = MaterialTheme.colorScheme.primary
-            )
+            IconButton(
+                onClick = onRemoveFavorite
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = "Remove favorite",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
 
-private data class FavoriteUi(
-    val title: String,
-    val price: String
-)
+@Composable
+private fun EmptyFavoritesState() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Favorite,
+            contentDescription = null,
+            modifier = Modifier.size(56.dp),
+            tint = MaterialTheme.colorScheme.outline
+        )
+
+        Spacer(modifier = Modifier.size(12.dp))
+
+        Text(
+            text = "No favorite products yet",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.size(6.dp))
+
+        Text(
+            text = "Tap the heart icon on a product to save it here",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}

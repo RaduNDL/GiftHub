@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.gifthub" />
+                  <option name="mobileSdkAppId" value="1:577805890313:android:ebd5358d4200f9095d99d8" />
+                  <option name="projectId" value="gifthub-123" />
+                  <option name="projectNumber" value="577805890313" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

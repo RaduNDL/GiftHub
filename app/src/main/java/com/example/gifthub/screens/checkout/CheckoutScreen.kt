@@ -1,6 +1,7 @@
 package com.example.gifthub.screens.checkout
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,291 +20,758 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gifthub.models.AddressDto
+import com.example.gifthub.models.PaymentMethodDto
 import com.example.gifthub.navigation.GiftHubDestinations
+import com.example.gifthub.viewmodel.AddressViewModel
+import com.example.gifthub.viewmodel.CartViewModel
+import com.example.gifthub.viewmodel.OrderViewModel
+import com.example.gifthub.viewmodel.PaymentMethodViewModel
+import java.util.Locale
 
 @Composable
 fun CheckoutScreen(
     currentRoute: String,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    cartViewModel: CartViewModel,
+    orderViewModel: OrderViewModel = viewModel(),
+    addressViewModel: AddressViewModel = viewModel(),
+    paymentMethodViewModel: PaymentMethodViewModel = viewModel()
 ) {
-    val cardholderName = remember { mutableStateOf("") }
-    val cardNumber = remember { mutableStateOf("") }
-    val expiryDate = remember { mutableStateOf("") }
-    val cvv = remember { mutableStateOf("") }
-    val scrollState = rememberScrollState()
+    val cart = cartViewModel.cart
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Checkout",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+    var selectedAddressId by remember { mutableStateOf("") }
+    var selectedPaymentId by remember { mutableStateOf("") }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+    var useManualAddress by remember { mutableStateOf(false) }
+    var useManualPayment by remember { mutableStateOf(false) }
 
-                    Text(
-                        text = "Complete your payment details below",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    var manualAddress by remember { mutableStateOf("") }
+    var manualPaymentMethod by remember { mutableStateOf("Cash on Delivery") }
 
-                IconButton(
-                    onClick = { onNavigate(GiftHubDestinations.HOME) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var placedOrderId by remember { mutableStateOf("") }
+
+    val addresses = addressViewModel.addresses
+    val paymentMethods = paymentMethodViewModel.paymentMethods
+
+    val selectedAddress = addresses.firstOrNull { it.idAddress == selectedAddressId }
+    val selectedPayment = paymentMethods.firstOrNull { it.transactionId == selectedPaymentId }
+
+    val finalAddress = if (useManualAddress || addresses.isEmpty()) {
+        manualAddress.trim()
+    } else {
+        selectedAddress?.let { "${it.street}, ${it.city}, ${it.zipcode}" }.orEmpty()
+    }
+
+    val finalPaymentMethod = if (useManualPayment || paymentMethods.isEmpty()) {
+        manualPaymentMethod.trim()
+    } else {
+        selectedPayment?.method.orEmpty()
+    }
+
+    val canPlaceOrder = cart.items.isNotEmpty() &&
+            !orderViewModel.isLoading &&
+            finalAddress.isNotBlank() &&
+            finalPaymentMethod.isNotBlank()
+
+    LaunchedEffect(Unit) {
+        cartViewModel.loadCart()
+        addressViewModel.loadAddresses()
+        paymentMethodViewModel.loadPaymentMethods()
+        orderViewModel.clearError()
+        orderViewModel.clearUserMessage()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                cartViewModel.loadCart()
+                addressViewModel.loadAddresses()
+                paymentMethodViewModel.loadPaymentMethods()
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(addresses) {
+        if (addresses.isEmpty()) {
+            useManualAddress = true
+        } else if (!useManualAddress && selectedAddressId.isBlank()) {
+            selectedAddressId = addresses.first().idAddress
+        }
+    }
+
+    LaunchedEffect(paymentMethods) {
+        if (paymentMethods.isEmpty()) {
+            useManualPayment = true
+        } else if (!useManualPayment && selectedPaymentId.isBlank()) {
+            selectedPaymentId = paymentMethods.first().transactionId
+        }
+    }
+
+    LaunchedEffect(cartViewModel.userMessage) {
+        cartViewModel.userMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            cartViewModel.clearUserMessage()
+        }
+    }
+
+    LaunchedEffect(orderViewModel.errorMessage) {
+        orderViewModel.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+        }
+    }
+
+    if (showSuccessDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = {
+                Text("Order placed successfully")
+            },
+            text = {
+                Text(
+                    "Your order #${placedOrderId.take(8).uppercase()} has been placed successfully. " +
+                            "You can track it anytime from Order History."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showSuccessDialog = false
+                        onNavigate(GiftHubDestinations.ORDER_HISTORY)
+                    }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Home"
-                    )
+                    Text("View Orders")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSuccessDialog = false
+                        onNavigate(GiftHubDestinations.PRODUCTS)
+                    }
+                ) {
+                    Text("Continue Shopping")
                 }
             }
+        )
+    }
 
-            Spacer(modifier = Modifier.height(22.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            Surface(
+                tonalElevation = 3.dp,
+                shadowElevation = 4.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(54.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    IconButton(onClick = { onNavigate(GiftHubDestinations.CART) }) {
                         Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Secure payment",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(14.dp))
-
                     Column {
                         Text(
-                            text = "Secure Payment",
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Checkout",
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
                         Text(
-                            text = "Your payment information is protected",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "Review, confirm and place your order",
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp)
+        }
+    ) { paddingValues ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            if (cart.items.isEmpty() && !cartViewModel.isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(28.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CreditCard,
-                            contentDescription = "Payment details",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(76.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingBag,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        Text(
-                            text = "Payment Details",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            Text(
+                                text = "Your cart is empty",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "Add products before continuing to checkout.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(18.dp))
+
+                            Button(
+                                onClick = { onNavigate(GiftHubDestinations.PRODUCTS) },
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Text("Go to Products")
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .navigationBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                ) {
+                    HeroCheckoutCard(total = cart.temporaryValue)
+
+                    SectionTitle("Delivery Address")
+
+                    if (addresses.isNotEmpty()) {
+                        addresses.forEach { address ->
+                            AddressSelectionCard(
+                                address = address,
+                                isSelected = !useManualAddress && selectedAddressId == address.idAddress,
+                                onClick = {
+                                    selectedAddressId = address.idAddress
+                                    useManualAddress = false
+                                }
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    useManualAddress = !useManualAddress
+                                    if (!useManualAddress && selectedAddressId.isBlank() && addresses.isNotEmpty()) {
+                                        selectedAddressId = addresses.first().idAddress
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    if (useManualAddress) "Use saved address"
+                                    else "Use another address"
+                                )
+                            }
+
+                            TextButton(
+                                onClick = { onNavigate(GiftHubDestinations.MANAGE_ADDRESS) }
+                            ) {
+                                Text("Manage addresses")
+                            }
+                        }
+                    }
+
+                    if (useManualAddress || addresses.isEmpty()) {
+                        OutlinedTextField(
+                            value = manualAddress,
+                            onValueChange = { manualAddress = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Enter delivery address") },
+                            leadingIcon = {
+                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                            },
+                            shape = RoundedCornerShape(16.dp),
+                            minLines = 3
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    SectionTitle("Payment Method")
 
-                    OutlinedTextField(
-                        value = cardholderName.value,
-                        onValueChange = { cardholderName.value = it },
-                        label = { Text("Cardholder Name") },
-                        placeholder = { Text("John Doe") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        singleLine = true
-                    )
+                    if (paymentMethods.isNotEmpty()) {
+                        paymentMethods.forEach { payment ->
+                            PaymentSelectionCard(
+                                payment = payment,
+                                isSelected = !useManualPayment && selectedPaymentId == payment.transactionId,
+                                onClick = {
+                                    selectedPaymentId = payment.transactionId
+                                    useManualPayment = false
+                                }
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    useManualPayment = !useManualPayment
+                                    if (!useManualPayment && selectedPaymentId.isBlank() && paymentMethods.isNotEmpty()) {
+                                        selectedPaymentId = paymentMethods.first().transactionId
+                                    }
+                                }
+                            ) {
+                                Text(
+                                    if (useManualPayment) "Use saved payment"
+                                    else "Use another payment"
+                                )
+                            }
 
-                    OutlinedTextField(
-                        value = cardNumber.value,
-                        onValueChange = { cardNumber.value = it },
-                        label = { Text("Card Number") },
-                        placeholder = { Text("1234 5678 9012 3456") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        singleLine = true
-                    )
+                            TextButton(
+                                onClick = { onNavigate(GiftHubDestinations.SAVED_PAYMENTS) }
+                            ) {
+                                Text("Manage payments")
+                            }
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    if (useManualPayment || paymentMethods.isEmpty()) {
                         OutlinedTextField(
-                            value = expiryDate.value,
-                            onValueChange = { expiryDate.value = it },
-                            label = { Text("Expiry Date") },
-                            placeholder = { Text("MM/YY") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(18.dp),
-                            singleLine = true
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        OutlinedTextField(
-                            value = cvv.value,
-                            onValueChange = { cvv.value = it },
-                            label = { Text("CVV") },
-                            placeholder = { Text("123") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(18.dp),
+                            value = manualPaymentMethod,
+                            onValueChange = { manualPaymentMethod = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Payment method") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Payments, contentDescription = null)
+                            },
+                            shape = RoundedCornerShape(16.dp),
                             singleLine = true
                         )
                     }
+
+                    SectionTitle("Order Summary")
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            cart.items.forEach { item ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = item.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Text(
+                                            text = "Qty: ${item.quantity}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Text(
+                                        text = "$${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider()
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Total",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "$${String.format(Locale.US, "%.2f", cart.temporaryValue)}",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(18.dp)) {
+                            Text(
+                                text = "Confirmation",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Text(
+                                text = if (finalAddress.isBlank()) {
+                                    "Delivery address not selected yet."
+                                } else {
+                                    "Address: $finalAddress"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = if (finalPaymentMethod.isBlank()) {
+                                    "Payment method not selected yet."
+                                } else {
+                                    "Payment: $finalPaymentMethod"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { onNavigate(GiftHubDestinations.CART) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Text("Back")
+                        }
+
+                        Button(
+                            onClick = {
+                                orderViewModel.placeOrder(
+                                    cart = cart,
+                                    address = finalAddress,
+                                    paymentMethod = finalPaymentMethod
+                                ) { orderId ->
+                                    cartViewModel.loadCart()
+                                    placedOrderId = orderId
+                                    showSuccessDialog = true
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            enabled = canPlaceOrder,
+                            colors = ButtonDefaults.buttonColors()
+                        ) {
+                            if (orderViewModel.isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("Placing...")
+                            } else {
+                                Text(
+                                    text = "Place Order",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    SummaryRow(label = "Subtotal", value = "$89.99")
-                    SummaryRow(label = "Shipping", value = "$10.00")
-                    SummaryRow(label = "Total", value = "$99.99", isBold = true)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = { onNavigate(GiftHubDestinations.HOME) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Text(
-                    text = "Pay Now",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-private fun SummaryRow(
-    label: String,
-    value: String,
-    isBold: Boolean = false
-) {
-    Row(
+private fun HeroCheckoutCard(total: Double) {
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
     ) {
-        Text(
-            text = label,
-            style = if (isBold) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.bodyLarge
-            },
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
-        )
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surface,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
 
-        Text(
-            text = value,
-            style = if (isBold) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.bodyLarge
-            },
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = if (isBold) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column {
+                    Text(
+                        text = "Almost done",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Review your details and confirm the order",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
-        )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Total to pay",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Text(
+                text = "$${String.format(Locale.US, "%.2f", total)}",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun AddressSelectionCard(
+    address: AddressDto,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = "Address",
+                tint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = address.street,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${address.city}, ${address.zipcode}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PaymentSelectionCard(
+    payment: PaymentMethodDto,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.CreditCard,
+                contentDescription = "Payment",
+                tint = if (isSelected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = payment.method.ifBlank { "Unknown method" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = payment.paymentStatus.ifBlank { "Saved" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
     }
 }
