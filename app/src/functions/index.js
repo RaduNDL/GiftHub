@@ -8,10 +8,7 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
   "users/{userId}/notifications/{notificationId}",
   async (event) => {
     const snapshot = event.data;
-    if (!snapshot) {
-      logger.warn("No snapshot in event.");
-      return;
-    }
+    if (!snapshot) return;
 
     const notificationData = snapshot.data() || {};
     const userId = event.params.userId;
@@ -21,13 +18,13 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      logger.warn("User document not found.", { userId });
+      logger.warn("User not found", { userId });
       return;
     }
 
     const fcmToken = userDoc.get("fcmToken");
     if (!fcmToken) {
-      logger.warn("Missing fcmToken on user document.", { userId });
+      logger.warn("Missing fcmToken", { userId });
       return;
     }
 
@@ -46,20 +43,20 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
           notificationId,
           targetRoute,
           orderId,
-          type
+          type,
         },
         android: {
-          priority: "high"
-        }
+          priority: "high",
+        },
       });
 
-      logger.info("Push sent successfully.", { userId, notificationId, response });
+      logger.info("Push sent successfully", { userId, notificationId, response });
     } catch (error) {
-      logger.error("Push send failed.", {
+      logger.error("Push send failed", {
         userId,
         notificationId,
-        error: error.message,
-        code: error.code
+        code: error.code,
+        message: error.message,
       });
 
       if (
@@ -67,7 +64,7 @@ exports.sendPushOnNotificationCreated = onDocumentCreated(
         error.code === "messaging/invalid-registration-token"
       ) {
         await userRef.update({
-          fcmToken: admin.firestore.FieldValue.delete()
+          fcmToken: admin.firestore.FieldValue.delete(),
         }).catch(() => null);
       }
     }

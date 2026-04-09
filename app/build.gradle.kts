@@ -35,7 +35,20 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+    }
+
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE.txt"
+        }
+    }
 }
 
 kotlin {
@@ -67,6 +80,9 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.23.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

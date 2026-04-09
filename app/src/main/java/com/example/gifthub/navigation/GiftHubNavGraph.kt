@@ -61,6 +61,7 @@ fun GiftHubNavGraph() {
         navController = navController,
         startDestination = startDestination
     ) {
+        // ========== AUTH SCREENS ==========
         composable(GiftHubDestinations.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -103,9 +104,9 @@ fun GiftHubNavGraph() {
             )
         }
 
+        // ========== HOME SCREEN ==========
         composable(GiftHubDestinations.HOME) {
             HomeScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.HOME,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -118,9 +119,9 @@ fun GiftHubNavGraph() {
             )
         }
 
+        // ========== PRODUCTS SCREENS ==========
         composable(GiftHubDestinations.PRODUCTS) {
             ProductsScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -145,11 +146,10 @@ fun GiftHubNavGraph() {
             val categoryName = Uri.decode(encodedCategoryName)
 
             ProductsScreen(
-                currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
-                        currentRoute = GiftHubDestinations.PRODUCTS,
+                        currentRoute = normalizedCurrentRoute,
                         destination = destination,
                         authViewModel = authViewModel
                     )
@@ -199,15 +199,16 @@ fun GiftHubNavGraph() {
             )
         }
 
+        // ========== CATEGORIES ==========
         composable(GiftHubDestinations.MANAGE_CATEGORIES) {
             ManageCategoriesScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
+        // ========== CART ==========
         composable(GiftHubDestinations.CART) {
             CartScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.CART,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -220,52 +221,9 @@ fun GiftHubNavGraph() {
             )
         }
 
-        composable(GiftHubDestinations.FAVORITES) {
-            FavoritesScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.FAVORITES,
-                onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
-                },
-                authViewModel = authViewModel
-            )
-        }
-
-        composable(GiftHubDestinations.PROFILE) {
-            ProfileScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PROFILE,
-                onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
-                }
-            )
-        }
-
-        composable(GiftHubDestinations.NOTIFICATIONS) {
-            NotificationsScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.NOTIFICATIONS,
-                onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
-                }
-            )
-        }
-
+        // ========== CHECKOUT ==========
         composable(GiftHubDestinations.CHECKOUT) {
             CheckoutScreen(
-                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.CHECKOUT,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -278,6 +236,7 @@ fun GiftHubNavGraph() {
             )
         }
 
+        // ========== ORDER HISTORY ==========
         composable(GiftHubDestinations.ORDER_HISTORY) {
             OrderHistoryScreen(
                 onBack = { navController.popBackStack() },
@@ -292,12 +251,59 @@ fun GiftHubNavGraph() {
             )
         }
 
+        // ========== FAVORITES ==========
+        composable(GiftHubDestinations.FAVORITES) {
+            FavoritesScreen(
+                onNavigate = { destination ->
+                    handleNavigation(
+                        navController = navController,
+                        currentRoute = normalizedCurrentRoute,
+                        destination = destination,
+                        authViewModel = authViewModel
+                    )
+                },
+                authViewModel = authViewModel
+            )
+        }
+
+        // ========== PROFILE ==========
+        composable(GiftHubDestinations.PROFILE) {
+            ProfileScreen(
+                onNavigate = { destination ->
+                    handleNavigation(
+                        navController = navController,
+                        currentRoute = normalizedCurrentRoute,
+                        destination = destination,
+                        authViewModel = authViewModel
+                    )
+                }
+            )
+        }
+
+        // ========== NOTIFICATIONS ==========
+        composable(GiftHubDestinations.NOTIFICATIONS) {
+            NotificationsScreen(
+                onNavigate = { destination ->
+                    handleNavigation(
+                        navController = navController,
+                        currentRoute = normalizedCurrentRoute,
+                        destination = destination,
+                        authViewModel = authViewModel
+                    )
+                },
+                currentRoute = TODO(),
+                viewModel = TODO()
+            )
+        }
+
+        // ========== ADDRESS MANAGEMENT ==========
         composable(GiftHubDestinations.MANAGE_ADDRESS) {
             ManageAddressScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
+        // ========== PAYMENTS MANAGEMENT ==========
         composable(GiftHubDestinations.SAVED_PAYMENTS) {
             SavedPaymentsScreen(
                 onBack = { navController.popBackStack() }
@@ -306,6 +312,9 @@ fun GiftHubNavGraph() {
     }
 }
 
+/**
+ * Handles navigation triggered by push notifications
+ */
 @Composable
 private fun HandlePushNavigation(
     navController: NavHostController,
@@ -327,7 +336,8 @@ private fun HandlePushNavigation(
             GiftHubDestinations.CART,
             GiftHubDestinations.FAVORITES,
             GiftHubDestinations.PROFILE,
-            GiftHubDestinations.NOTIFICATIONS -> {
+            GiftHubDestinations.NOTIFICATIONS,
+            GiftHubDestinations.ORDER_HISTORY -> {
                 navigateToTopLevel(navController, targetRoute)
             }
 
@@ -338,6 +348,7 @@ private fun HandlePushNavigation(
             }
         }
 
+        // Mark notification as read and delete it
         navigation.notificationId
             ?.takeIf { it.isNotBlank() }
             ?.let { notificationId ->
@@ -350,12 +361,16 @@ private fun HandlePushNavigation(
     }
 }
 
+/**
+ * Handles regular navigation between screens
+ */
 private fun handleNavigation(
     navController: NavHostController,
     currentRoute: String?,
     destination: String,
     authViewModel: AuthViewModel
 ) {
+    // Avoid re-navigation to the same route
     if (currentRoute == destination) return
 
     when (destination) {
@@ -374,7 +389,8 @@ private fun handleNavigation(
         GiftHubDestinations.CART,
         GiftHubDestinations.FAVORITES,
         GiftHubDestinations.PROFILE,
-        GiftHubDestinations.NOTIFICATIONS -> {
+        GiftHubDestinations.NOTIFICATIONS,
+        GiftHubDestinations.ORDER_HISTORY -> {
             navigateToTopLevel(navController, destination)
         }
 
@@ -386,6 +402,9 @@ private fun handleNavigation(
     }
 }
 
+/**
+ * Navigates to a top-level destination while saving/restoring state
+ */
 private fun navigateToTopLevel(
     navController: NavHostController,
     route: String
@@ -399,6 +418,13 @@ private fun navigateToTopLevel(
     }
 }
 
+/**
+ * Normalizes the current route to handle nested navigation routes
+ * For example:
+ * - "product_details/xyz" → "products"
+ * - "products_by_category/x/y" → "products"
+ * - "edit_product/abc" → "products"
+ */
 private fun NavDestination?.normalizedRoute(): String? {
     val route = this?.route ?: return null
 

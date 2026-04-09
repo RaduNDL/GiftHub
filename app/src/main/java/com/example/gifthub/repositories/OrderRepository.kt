@@ -7,11 +7,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.messaging.FirebaseMessaging
 
 class OrderRepository {
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val messaging = FirebaseMessaging.getInstance()
 
     private fun currentUserId(): String? = auth.currentUser?.uid
 
@@ -149,6 +151,13 @@ class OrderRepository {
 
             orderRef.id
         }.addOnSuccessListener { orderId ->
+            // Send push notification
+            sendPushNotification(
+                title = "Order Placed",
+                message = "Your order #${orderId.take(8).uppercase()} was placed successfully.",
+                type = "order_created",
+                orderId = orderId
+            )
             onSuccess(orderId)
         }.addOnFailureListener { e ->
             onError(e.message ?: "Failed to place order")
@@ -229,7 +238,16 @@ class OrderRepository {
                         )
 
                         notificationRef.set(notificationData)
-                            .addOnSuccessListener { onSuccess() }
+                            .addOnSuccessListener {
+                                // Send push notification to customer
+                                sendPushNotification(
+                                    title = "Order Updated",
+                                    message = "Your order #${orderId.take(8).uppercase()} is now '$newStatus'.",
+                                    type = "order_status_updated",
+                                    orderId = orderId
+                                )
+                                onSuccess()
+                            }
                             .addOnFailureListener { onSuccess() }
                     }
                     .addOnFailureListener { e ->
@@ -238,6 +256,29 @@ class OrderRepository {
             }
             .addOnFailureListener { e ->
                 onError(e.message ?: "Failed to find order")
+            }
+    }
+
+    private fun sendPushNotification(
+        title: String,
+        message: String,
+        type: String,
+        orderId: String
+    ) {
+        val uid = currentUserId() ?: return
+
+        // Get FCM token and send notification
+        db.collection("users")
+            .document(uid)
+            .get()
+            .addOnSuccessListener { userDoc ->
+                val fcmToken = userDoc.getString("fcmToken")
+                if (fcmToken != null) {
+                    // In a real app, you'd call your backend to send the push notification
+                    // using Cloud Functions or similar
+                    // For now, we're just logging it
+                    println("Push notification ready to send: $title - $message")
+                }
             }
     }
 

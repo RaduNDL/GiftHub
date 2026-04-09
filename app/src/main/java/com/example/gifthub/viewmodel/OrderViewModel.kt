@@ -36,20 +36,24 @@ class OrderViewModel : ViewModel() {
         cart: ShoppingCartDto,
         address: String,
         paymentMethod: String,
-        onSuccess: (String) -> Unit
+        onSuccess: (String) -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
         if (address.isBlank()) {
             errorMessage = "Please enter or select a delivery address."
+            onError(errorMessage!!)
             return
         }
 
         if (paymentMethod.isBlank()) {
             errorMessage = "Please enter or select a payment method."
+            onError(errorMessage!!)
             return
         }
 
         if (cart.items.isEmpty()) {
             errorMessage = "Your cart is empty."
+            onError(errorMessage!!)
             return
         }
 
@@ -75,6 +79,7 @@ class OrderViewModel : ViewModel() {
             onError = { error ->
                 isLoading = false
                 errorMessage = error
+                onError(error)
             }
         )
     }

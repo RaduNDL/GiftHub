@@ -1,5 +1,6 @@
 package com.example.gifthub.viewmodel
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -36,33 +37,53 @@ class NotificationViewModel : ViewModel() {
         )
     }
 
+    fun createOrderNotificationAndPush(
+        context: Context,
+        userId: String,
+        title: String,
+        message: String,
+        orderId: String = "",
+        targetRoute: String = "order_history",
+        type: String = "order_update",
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        repository.createOrderNotificationAndPush(
+            context = context,
+            userId = userId,
+            title = title,
+            message = message,
+            orderId = orderId,
+            targetRoute = targetRoute,
+            type = type,
+            onSuccess = {
+                loadNotifications()
+                onSuccess()
+            },
+            onError = { err ->
+                errorMessage = err
+                onError(err)
+            }
+        )
+    }
+
     fun markAsRead(notificationId: String) {
         repository.markAsRead(
             notificationId = notificationId,
             onSuccess = {
-                notifications = notifications.map { notification ->
-                    if (notification.notificationID == notificationId) {
-                        notification.copy(markedAsRead = true)
-                    } else {
-                        notification
-                    }
+                notifications = notifications.map { n ->
+                    if (n.notificationID == notificationId) n.copy(markedAsRead = true) else n
                 }
             },
-            onError = { error ->
-                errorMessage = error
-            }
+            onError = { error -> errorMessage = error }
         )
     }
 
     fun deleteNotification(notificationId: String) {
         repository.deleteNotification(
             notificationId = notificationId,
-            onSuccess = {
-                notifications = notifications.filterNot { it.notificationID == notificationId }
-            },
-            onError = { error ->
-                errorMessage = error
-            }
+            onSuccess = { notifications = notifications.filterNot { it.notificationID == notificationId } },
+            onError = { error -> errorMessage = error }
         )
     }
 

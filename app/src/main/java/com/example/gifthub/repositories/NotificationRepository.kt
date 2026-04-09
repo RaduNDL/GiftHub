@@ -1,6 +1,9 @@
 package com.example.gifthub.repositories
 
+import android.content.Context
+import android.util.Log
 import com.example.gifthub.models.NotificationDto
+import com.example.gifthub.notifications.FcmV1Sender
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -16,6 +19,61 @@ class NotificationRepository {
         db.collection("users")
             .document(userId)
             .collection("notifications")
+
+    fun createOrderNotificationAndPush(
+        context: Context,
+        userId: String,
+        title: String,
+        message: String,
+        orderId: String = "",
+        targetRoute: String = "order_history",
+        type: String = "order_update",
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val docRef = notificationsCollection(userId).document()
+        val notificationId = docRef.id
+
+        val payload = hashMapOf(
+            "notificationID" to notificationId,
+            "userId" to userId,
+            "title" to title,
+            "message" to message,
+            "createdDate" to System.currentTimeMillis(),
+            "markedAsRead" to false,
+            "type" to type,
+            "targetRoute" to targetRoute,
+            "orderId" to orderId
+        )
+
+        docRef.set(payload)
+            .addOnSuccessListener {
+                db.collection("users").document(userId).get()
+                    .addOnSuccessListener { userDoc ->
+                        val token = userDoc.getString("fcmToken").orEmpty()
+                        FcmV1Sender.sendDataPush(
+                            context = context,
+                            toToken = token,
+                            title = title,
+                            body = message,
+                            targetRoute = targetRoute,
+                            notificationId = notificationId,
+                            orderId = orderId,
+                            type = type
+                        ) { ok, result ->
+                            Log.d("FcmV1Sender", "send push ok=$ok result=$result")
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("NotificationRepository", "Failed to load token: ${e.message}")
+                    }
+
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+                onError(e.message ?: "Failed to create notification")
+            }
+    }
 
     fun getNotifications(
         onSuccess: (List<NotificationDto>) -> Unit,
@@ -47,35 +105,23 @@ class NotificationRepository {
             }
     }
 
-    fun markAsRead(
-        notificationId: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun markAsRead(notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val uid = currentUserId() ?: return onError("User not authenticated")
 
         notificationsCollection(uid)
             .document(notificationId)
             .update("markedAsRead", true)
             .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener {
-                onError(it.message ?: "Failed to update notification")
-            }
+            .addOnFailureListener { onError(it.message ?: "Failed to update notification") }
     }
 
-    fun deleteNotification(
-        notificationId: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
+    fun deleteNotification(notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val uid = currentUserId() ?: return onError("User not authenticated")
 
         notificationsCollection(uid)
             .document(notificationId)
             .delete()
             .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener {
-                onError(it.message ?: "Failed to delete notification")
-            }
+            .addOnFailureListener { onError(it.message ?: "Failed to delete notification") }
     }
 }

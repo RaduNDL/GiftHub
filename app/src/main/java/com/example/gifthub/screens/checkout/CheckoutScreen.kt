@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -51,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,11 +70,11 @@ import com.example.gifthub.viewmodel.AddressViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.OrderViewModel
 import com.example.gifthub.viewmodel.PaymentMethodViewModel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
 fun CheckoutScreen(
-    currentRoute: String,
     onNavigate: (String) -> Unit,
     cartViewModel: CartViewModel,
     orderViewModel: OrderViewModel = viewModel(),
@@ -82,6 +84,7 @@ fun CheckoutScreen(
     val cart = cartViewModel.cart
     val snackbarHostState = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
 
     var selectedAddressId by remember { mutableStateOf("") }
     var selectedPaymentId by remember { mutableStateOf("") }
@@ -136,10 +139,7 @@ fun CheckoutScreen(
         }
 
         lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(addresses) {
@@ -159,24 +159,43 @@ fun CheckoutScreen(
     }
 
     LaunchedEffect(cartViewModel.userMessage) {
-        cartViewModel.userMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        cartViewModel.userMessage?.let { message ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Short
+                )
+            }
             cartViewModel.clearUserMessage()
         }
     }
 
     LaunchedEffect(orderViewModel.errorMessage) {
-        orderViewModel.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        orderViewModel.errorMessage?.let { error ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = error,
+                    duration = SnackbarDuration.Long
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(orderViewModel.userMessage) {
+        orderViewModel.userMessage?.let { message ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Short
+                )
+            }
         }
     }
 
     if (showSuccessDialog) {
         AlertDialog(
             onDismissRequest = {},
-            title = {
-                Text("Order placed successfully")
-            },
+            title = { Text("Order placed successfully") },
             text = {
                 Text(
                     "Your order #${placedOrderId.take(8).uppercase()} has been placed successfully. " +
@@ -184,24 +203,16 @@ fun CheckoutScreen(
                 )
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showSuccessDialog = false
-                        onNavigate(GiftHubDestinations.ORDER_HISTORY)
-                    }
-                ) {
-                    Text("View Orders")
-                }
+                Button(onClick = {
+                    showSuccessDialog = false
+                    onNavigate(GiftHubDestinations.ORDER_HISTORY)
+                }) { Text("View Orders") }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        onNavigate(GiftHubDestinations.PRODUCTS)
-                    }
-                ) {
-                    Text("Continue Shopping")
-                }
+                TextButton(onClick = {
+                    showSuccessDialog = false
+                    onNavigate(GiftHubDestinations.PRODUCTS)
+                }) { Text("Continue Shopping") }
             }
         )
     }
@@ -209,10 +220,7 @@ fun CheckoutScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Surface(
-                tonalElevation = 3.dp,
-                shadowElevation = 4.dp
-            ) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 4.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -281,29 +289,22 @@ fun CheckoutScreen(
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
-
                             Text(
-                                text = "Your cart is empty",
+                                "Your cart is empty",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold
                             )
-
                             Spacer(modifier = Modifier.height(8.dp))
-
                             Text(
-                                text = "Add products before continuing to checkout.",
+                                "Add products before continuing to checkout.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-
                             Spacer(modifier = Modifier.height(18.dp))
-
                             Button(
                                 onClick = { onNavigate(GiftHubDestinations.PRODUCTS) },
                                 shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Text("Go to Products")
-                            }
+                            ) { Text("Go to Products") }
                         }
                     }
                 }
@@ -317,7 +318,6 @@ fun CheckoutScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
                     HeroCheckoutCard(total = cart.temporaryValue)
-
                     SectionTitle("Delivery Address")
 
                     if (addresses.isNotEmpty()) {
@@ -365,7 +365,10 @@ fun CheckoutScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Enter delivery address") },
                             leadingIcon = {
-                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null
+                                )
                             },
                             shape = RoundedCornerShape(16.dp),
                             minLines = 3
@@ -419,7 +422,10 @@ fun CheckoutScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Payment method") },
                             leadingIcon = {
-                                Icon(Icons.Default.Payments, contentDescription = null)
+                                Icon(
+                                    Icons.Default.Payments,
+                                    contentDescription = null
+                                )
                             },
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true
@@ -445,12 +451,12 @@ fun CheckoutScreen(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = item.name,
+                                            item.name,
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = "Qty: ${item.quantity}",
+                                            "Qty: ${item.quantity}",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -459,7 +465,7 @@ fun CheckoutScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
 
                                     Text(
-                                        text = "$${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
+                                        "$${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -474,12 +480,12 @@ fun CheckoutScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Total",
+                                    "Total",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "$${String.format(Locale.US, "%.2f", cart.temporaryValue)}",
+                                    "$${String.format(Locale.US, "%.2f", cart.temporaryValue)}",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -497,31 +503,25 @@ fun CheckoutScreen(
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Text(
-                                text = "Confirmation",
+                                "Confirmation",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-
                             Spacer(modifier = Modifier.height(10.dp))
-
                             Text(
-                                text = if (finalAddress.isBlank()) {
+                                if (finalAddress.isBlank())
                                     "Delivery address not selected yet."
-                                } else {
-                                    "Address: $finalAddress"
-                                },
+                                else
+                                    "Address: $finalAddress",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-
                             Spacer(modifier = Modifier.height(6.dp))
-
                             Text(
-                                text = if (finalPaymentMethod.isBlank()) {
+                                if (finalPaymentMethod.isBlank())
                                     "Payment method not selected yet."
-                                } else {
-                                    "Payment: $finalPaymentMethod"
-                                },
+                                else
+                                    "Payment: $finalPaymentMethod",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -538,21 +538,28 @@ fun CheckoutScreen(
                                 .weight(1f)
                                 .height(56.dp),
                             shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text("Back")
-                        }
+                        ) { Text("Back") }
 
                         Button(
                             onClick = {
                                 orderViewModel.placeOrder(
                                     cart = cart,
                                     address = finalAddress,
-                                    paymentMethod = finalPaymentMethod
-                                ) { orderId ->
-                                    cartViewModel.loadCart()
-                                    placedOrderId = orderId
-                                    showSuccessDialog = true
-                                }
+                                    paymentMethod = finalPaymentMethod,
+                                    onSuccess = { orderId ->
+                                        cartViewModel.loadCart()
+                                        placedOrderId = orderId
+                                        showSuccessDialog = true
+                                    },
+                                    onError = { error ->
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = error,
+                                                duration = SnackbarDuration.Long
+                                            )
+                                        }
+                                    }
+                                )
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -571,7 +578,7 @@ fun CheckoutScreen(
                                 Text("Placing...")
                             } else {
                                 Text(
-                                    text = "Place Order",
+                                    "Place Order",
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -600,10 +607,7 @@ private fun HeroCheckoutCard(total: Double) {
                 Box(
                     modifier = Modifier
                         .size(52.dp)
-                        .background(
-                            MaterialTheme.colorScheme.surface,
-                            CircleShape
-                        ),
+                        .background(MaterialTheme.colorScheme.surface, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -683,23 +687,22 @@ private fun AddressSelectionCard(
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = "Address",
-                tint = if (isSelected) {
+                tint = if (isSelected)
                     MaterialTheme.colorScheme.primary
-                } else {
+                else
                     MaterialTheme.colorScheme.onSurfaceVariant
-                }
             )
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = address.street,
+                    address.street,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${address.city}, ${address.zipcode}",
+                    "${address.city}, ${address.zipcode}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -743,11 +746,10 @@ private fun PaymentSelectionCard(
             Icon(
                 imageVector = Icons.Default.CreditCard,
                 contentDescription = "Payment",
-                tint = if (isSelected) {
+                tint = if (isSelected)
                     MaterialTheme.colorScheme.primary
-                } else {
+                else
                     MaterialTheme.colorScheme.onSurfaceVariant
-                }
             )
 
             Spacer(modifier = Modifier.width(12.dp))
