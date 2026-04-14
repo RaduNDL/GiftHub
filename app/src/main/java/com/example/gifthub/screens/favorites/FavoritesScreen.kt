@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,6 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,6 +39,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,13 +47,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.gifthub.data.FirebaseAuthProvider
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.ui.components.GiftHubBottomBar
 import com.example.gifthub.viewmodel.AuthViewModel
+import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.FavoriteViewModel
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
@@ -55,11 +64,13 @@ fun FavoritesScreen(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     authViewModel: AuthViewModel,
-    favoriteViewModel: FavoriteViewModel = viewModel()
+    favoriteViewModel: FavoriteViewModel = viewModel(),
+    cartViewModel: CartViewModel = viewModel()
 ) {
     val currentUserId = FirebaseAuthProvider.auth.currentUser?.uid ?: ""
     val favorites = favoriteViewModel.favoriteProducts
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotBlank()) {
@@ -69,8 +80,19 @@ fun FavoritesScreen(
 
     LaunchedEffect(favoriteViewModel.userMessage) {
         favoriteViewModel.userMessage?.let { message ->
-            snackbarHostState.showSnackbar(message)
-            favoriteViewModel.clearUserMessage()
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(message)
+                favoriteViewModel.clearUserMessage()
+            }
+        }
+    }
+
+    LaunchedEffect(cartViewModel.userMessage) {
+        cartViewModel.userMessage?.let { message ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(message)
+                cartViewModel.clearUserMessage()
+            }
         }
     }
 
@@ -134,6 +156,9 @@ fun FavoritesScreen(
                                     productId = product.idProduct,
                                     productName = product.name
                                 )
+                            },
+                            onAddToCart = {
+                                cartViewModel.addToCart(product, quantity = 1)
                             }
                         )
                     }
@@ -224,7 +249,8 @@ private fun FavoritesSummaryCard(itemCount: Int) {
 @Composable
 private fun FavoriteRow(
     product: ProductDto,
-    onRemoveFavorite: () -> Unit
+    onRemoveFavorite: () -> Unit,
+    onAddToCart: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -234,70 +260,102 @@ private fun FavoriteRow(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (product.imageUrl.isNotBlank()) {
-                AsyncImage(
-                    model = product.imageUrl,
-                    contentDescription = product.name,
-                    modifier = Modifier
-                        .size(92.dp)
-                        .clip(RoundedCornerShape(22.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .size(92.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = RoundedCornerShape(22.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+        Column {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (product.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = product.imageUrl,
+                        contentDescription = product.name,
+                        modifier = Modifier
+                            .size(92.dp)
+                            .clip(RoundedCornerShape(22.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(92.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(22.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingBag,
+                            contentDescription = product.name,
+                            modifier = Modifier.size(34.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.size(18.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.size(6.dp))
+
+                    Text(
+                        text = "$${String.format(Locale.US, "%.2f", product.price)}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                IconButton(
+                    onClick = onRemoveFavorite
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ShoppingBag,
-                        contentDescription = product.name,
-                        modifier = Modifier.size(34.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = "Remove favorite",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.size(18.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.size(6.dp))
-
-                Text(
-                    text = "$${String.format(Locale.US, "%.2f", product.price)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            IconButton(
-                onClick = onRemoveFavorite
+            // Add to Cart Button
+            Button(
+                onClick = onAddToCart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .padding(horizontal = 16.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = "Remove favorite",
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = Icons.Outlined.ShoppingCart,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Add to Cart",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
+
+            Spacer(modifier = Modifier.size(12.dp))
         }
     }
 }

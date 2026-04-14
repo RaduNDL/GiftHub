@@ -213,7 +213,6 @@ fun CheckoutScreen(
             }
         )
     }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {

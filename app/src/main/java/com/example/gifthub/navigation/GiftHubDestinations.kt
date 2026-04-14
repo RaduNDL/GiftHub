@@ -13,6 +13,7 @@ object GiftHubDestinations {
     const val CART = "cart"
     const val CHECKOUT = "checkout"
     const val ORDER_HISTORY = "order_history"
+    const val ORDER_DETAILS = "order_details/{orderId}"
     const val FAVORITES = "favorites"
     const val PROFILE = "profile"
     const val NOTIFICATIONS = "notifications"
@@ -34,5 +35,9 @@ object GiftHubDestinations {
 
     fun productCustomization(productId: String): String {
         return "product_customization/$productId"
+    }
+
+    fun orderDetails(orderId: String): String {
+        return "order_details/$orderId"
     }
 }

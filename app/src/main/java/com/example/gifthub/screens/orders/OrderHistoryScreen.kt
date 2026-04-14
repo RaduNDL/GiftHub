@@ -4,119 +4,127 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.outlined.Cancel
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.outlined.LocalShipping
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gifthub.models.OrderDto
-import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.viewmodel.OrderViewModel
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @Composable
 fun OrderHistoryScreen(
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit = {},
     orderViewModel: OrderViewModel = viewModel()
 ) {
-    var isEmployee by remember { mutableStateOf(false) }
-    var roleLoaded by remember { mutableStateOf(false) }
+    val orders = orderViewModel.orders
+    val isLoading = orderViewModel.isLoading
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    var selectedOrder by remember { mutableStateOf<OrderDto?>(null) }
+    var showOrderDetails by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid == null) {
-            roleLoaded = true
-            return@LaunchedEffect
-        }
-
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(uid)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val role = snapshot.getString("role").orEmpty().trim().lowercase()
-                isEmployee = role == "employee"
-                roleLoaded = true
-            }
-            .addOnFailureListener {
-                roleLoaded = true
-            }
+        orderViewModel.loadOrders(isEmployee = false)
     }
 
-    LaunchedEffect(roleLoaded) {
-        if (roleLoaded) {
-            orderViewModel.loadOrders(isEmployee)
+    LaunchedEffect(orderViewModel.errorMessage) {
+        orderViewModel.errorMessage?.let { error ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = error,
+                    duration = SnackbarDuration.Long
+                )
+            }
+            orderViewModel.clearError()
         }
+    }
+
+    LaunchedEffect(orderViewModel.userMessage) {
+        orderViewModel.userMessage?.let { message ->
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = message,
+                    duration = SnackbarDuration.Short
+                )
+            }
+            orderViewModel.clearUserMessage()
+        }
+    }
+
+    if (showOrderDetails && selectedOrder != null) {
+        OrderDetailsDialog(
+            order = selectedOrder!!,
+            onDismiss = {
+                showOrderDetails = false
+                selectedOrder = null
+            }
+        )
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            Surface(
-                tonalElevation = 2.dp,
-                shadowElevation = 3.dp
-            ) {
+            Surface(tonalElevation = 3.dp, shadowElevation = 4.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
@@ -126,35 +134,16 @@ fun OrderHistoryScreen(
                         )
                     }
 
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
+                    Column {
                         Text(
-                            text = if (isEmployee) "All Orders" else "My Orders",
+                            text = "Order History",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (isEmployee) {
-                                "Manage and update customer orders"
-                            } else {
-                                "See your placed orders"
-                            },
+                            text = "View and track your orders",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    FilledTonalIconButton(
-                        onClick = {
-                            if (roleLoaded) {
-                                orderViewModel.loadOrders(isEmployee)
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = "Refresh"
                         )
                     }
                 }
@@ -168,192 +157,42 @@ fun OrderHistoryScreen(
             color = MaterialTheme.colorScheme.background
         ) {
             when {
-                !roleLoaded || orderViewModel.isLoading -> {
+                isLoading && orders.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.size(12.dp))
-                            Text(
-                                text = "Loading orders...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        CircularProgressIndicator()
                     }
                 }
-
-                orderViewModel.errorMessage != null -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.elevatedCardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(20.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Could not load orders",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Spacer(modifier = Modifier.size(8.dp))
-
-                                Text(
-                                    text = orderViewModel.errorMessage ?: "Unknown error",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-
-                                Spacer(modifier = Modifier.size(16.dp))
-
-                                Button(
-                                    onClick = { orderViewModel.loadOrders(isEmployee) },
-                                    shape = RoundedCornerShape(14.dp)
-                                ) {
-                                    Text("Try Again")
-                                }
-                            }
-                        }
-                    }
+                orders.isEmpty() -> {
+                    EmptyOrdersState()
                 }
-
-                orderViewModel.orders.isEmpty() -> {
-                    EmptyOrdersContent(
-                        isEmployee = isEmployee,
-                        onGoProducts = { onNavigate(GiftHubDestinations.PRODUCTS) },
-                        onRefresh = { orderViewModel.loadOrders(isEmployee) }
-                    )
-                }
-
                 else -> {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .navigationBarsPadding(),
-                        contentPadding = PaddingValues(
-                            start = 16.dp,
-                            end = 16.dp,
-                            top = 14.dp,
-                            bottom = 24.dp
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                            .navigationBarsPadding()
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
                     ) {
                         item {
-                            OrderHistoryHelperCard(
-                                isEmployee = isEmployee,
-                                totalOrders = orderViewModel.orders.size,
-                                onRefresh = { orderViewModel.loadOrders(isEmployee) },
-                                onGoHome = { onNavigate(GiftHubDestinations.HOME) },
-                                onGoProducts = { onNavigate(GiftHubDestinations.PRODUCTS) }
-                            )
+                            OrdersSummaryCard(orderCount = orders.size)
                         }
 
-                        items(
-                            items = orderViewModel.orders,
-                            key = { it.orderId }
-                        ) { order ->
+                        items(orders) { order ->
                             OrderCard(
                                 order = order,
-                                isEmployee = isEmployee,
-                                onStatusChange = { newStatus ->
-                                    orderViewModel.updateOrderStatus(order.orderId, newStatus)
+                                onViewDetails = {
+                                    selectedOrder = order
+                                    showOrderDetails = true
                                 }
                             )
                         }
-                    }
-                }
-            }
-        }
-    }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun EmptyOrdersContent(
-    isEmployee: Boolean,
-    onGoProducts: () -> Unit,
-    onRefresh: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        ElevatedCard(
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Inventory2,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Spacer(modifier = Modifier.size(16.dp))
-
-                Text(
-                    text = if (isEmployee) "No orders in the system" else "No orders yet",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.size(8.dp))
-
-                Text(
-                    text = if (isEmployee) {
-                        "Customer orders will appear here automatically."
-                    } else {
-                        "Your successful orders will appear here."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.size(20.dp))
-
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onRefresh,
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text("Refresh")
-                    }
-
-                    if (!isEmployee) {
-                        Button(
-                            onClick = onGoProducts,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text("Browse Products")
+                        item {
+                            Spacer(modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -362,164 +201,82 @@ private fun EmptyOrdersContent(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OrderHistoryHelperCard(
-    isEmployee: Boolean,
-    totalOrders: Int,
-    onRefresh: () -> Unit,
-    onGoHome: () -> Unit,
-    onGoProducts: () -> Unit
-) {
+private fun OrdersSummaryCard(orderCount: Int) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.primaryContainer
         )
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = if (isEmployee) "Orders dashboard" else "Your orders overview",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.size(6.dp))
-
-            Text(
-                text = if (isEmployee) {
-                    "Loaded orders: $totalOrders"
-                } else {
-                    "You currently have $totalOrders order(s)."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.size(16.dp))
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(MaterialTheme.colorScheme.surface, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                FilledTonalButton(
-                    onClick = onRefresh,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Refresh")
-                }
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = "Orders",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
 
-                OutlinedButton(
-                    onClick = onGoHome,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Home,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Text("Home")
-                }
+            Spacer(modifier = Modifier.size(14.dp))
 
-                if (!isEmployee) {
-                    Button(
-                        onClick = onGoProducts,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.ShoppingBag,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.size(8.dp))
-                        Text("Shop More")
-                    }
-                }
+            Column {
+                Text(
+                    text = "Total Orders",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+
+                Spacer(modifier = Modifier.size(4.dp))
+
+                Text(
+                    text = orderCount.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
 }
 
 @Composable
-fun OrderCard(
+private fun OrderCard(
     order: OrderDto,
-    isEmployee: Boolean,
-    onStatusChange: (String) -> Unit
+    onViewDetails: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()) }
-    val dateStr = order.createdAt?.toDate()?.let { dateFormat.format(it) } ?: "N/A"
-
-    var showStatusMenu by remember { mutableStateOf(false) }
-
-    val statusOptions = listOf("Pending", "Confirmed", "Shipped", "Delivered", "Cancelled")
-    val customerStatusText = getCustomerFriendlyStatus(order.status)
-
-    val (statusColor, statusTextColor, statusIcon) = when (order.status) {
-        "Pending" -> Triple(
-            MaterialTheme.colorScheme.secondaryContainer,
-            MaterialTheme.colorScheme.onSecondaryContainer,
-            Icons.Outlined.Schedule
-        )
-
-        "Confirmed" -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            Icons.Outlined.CheckCircle
-        )
-
-        "Shipped" -> Triple(
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer,
-            Icons.Outlined.LocalShipping
-        )
-
-        "Delivered" -> Triple(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-            Icons.Outlined.CheckCircle
-        )
-
-        "Cancelled" -> Triple(
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer,
-            Icons.Outlined.Cancel
-        )
-
-        else -> Triple(
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant,
-            Icons.Outlined.Inventory2
-        )
-    }
-
-    ElevatedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.elevatedCardColors(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Order #${order.orderId.take(8).uppercase()}",
                         style = MaterialTheme.typography.titleMedium,
@@ -529,197 +286,405 @@ fun OrderCard(
                     Spacer(modifier = Modifier.size(4.dp))
 
                     Text(
-                        text = dateStr,
+                        text = formatDate(order.createdAt),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
 
-                    if (isEmployee) {
-                        Spacer(modifier = Modifier.size(4.dp))
+                StatusBadge(status = order.status)
+            }
+
+            Spacer(modifier = Modifier.size(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                DetailItem(
+                    icon = Icons.Default.LocationOn,
+                    label = "Items",
+                    value = "${order.items.size}"
+                )
+
+                DetailItem(
+                    icon = Icons.Default.Payment,
+                    label = "Amount",
+                    value = "$${String.format(Locale.US, "%.2f", order.totalAmount)}"
+                )
+
+                DetailItem(
+                    icon = Icons.Outlined.LocalShipping,
+                    label = "Method",
+                    value = order.paymentMethod.take(10)
+                )
+            }
+
+            Spacer(modifier = Modifier.size(12.dp))
+
+            if (order.items.isNotEmpty()) {
+                Text(
+                    text = "Items (${order.items.size})",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                order.items.take(2).forEach { item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
-                            text = "Customer: ${order.userId}",
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            text = "• ${item.name}",
                             style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "x${item.quantity}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                if (order.items.size > 2) {
+                    Text(
+                        text = "+${order.items.size - 2} more items",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.size(12.dp))
+            }
+
+            Button(
+                onClick = onViewDetails,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text(
+                    text = "View Details",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(status: String) {
+    val (backgroundColor, textColor, icon) = when (status.lowercase()) {
+        "pending" -> Triple(
+            Color(0xFFFFF3E0),
+            Color(0xFFE65100),
+            Icons.Outlined.LocalShipping
+        )
+        "processing" -> Triple(
+            Color(0xFFE3F2FD),
+            Color(0xFF1565C0),
+            Icons.Outlined.LocalShipping
+        )
+        "delivered" -> Triple(
+            Color(0xFFE8F5E9),
+            Color(0xFF2E7D32),
+            Icons.Default.CheckCircle
+        )
+        "cancelled" -> Triple(
+            Color(0xFFFFEBEE),
+            Color(0xFFC62828),
+            Icons.Default.History
+        )
+        else -> Triple(
+            Color(0xFFF5F5F5),
+            Color(0xFF616161),
+            Icons.Default.History
+        )
+    }
+
+    AssistChip(
+        onClick = {},
+        label = {
+            Text(
+                text = status,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = backgroundColor,
+            labelColor = textColor
+        ),
+        leadingIcon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = status,
+                modifier = Modifier.size(16.dp),
+                tint = textColor
+            )
+        },
+        shape = RoundedCornerShape(8.dp),
+        border = null
+    )
+}
+
+@Composable
+private fun DetailItem(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.size(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+@Composable
+private fun OrderDetailsDialog(
+    order: OrderDto,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Order Details",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Order ID: ${order.orderId.take(8).uppercase()}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Date: ${formatDate(order.createdAt)}",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                text = "Status: ${order.status}",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Text(
+                        text = "Items (${order.items.size})",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                items(order.items) { item ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = item.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "$${String.format(Locale.US, "%.2f", item.price)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = "x${item.quantity}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Total:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "Shipping Address",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        Text(
+                            text = order.address,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Box {
-                    AssistChip(
-                        onClick = {
-                            if (isEmployee) {
-                                showStatusMenu = true
-                            }
-                        },
-                        label = {
-                            Text(
-                                text = if (isEmployee) order.status else customerStatusText,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(8.dp)
                             )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = statusIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        colors = AssistChipDefaults.assistChipColors(
-                            containerColor = statusColor,
-                            labelColor = statusTextColor,
-                            leadingIconContentColor = statusTextColor
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "Payment Method",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
-                    )
-
-                    if (isEmployee) {
-                        DropdownMenu(
-                            expanded = showStatusMenu,
-                            onDismissRequest = { showStatusMenu = false }
-                        ) {
-                            statusOptions.forEach { status ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = status,
-                                            fontWeight = if (status == order.status) {
-                                                FontWeight.Bold
-                                            } else {
-                                                FontWeight.Normal
-                                            }
-                                        )
-                                    },
-                                    onClick = {
-                                        onStatusChange(status)
-                                        showStatusMenu = false
-                                    }
-                                )
-                            }
-                        }
+                        Text(
+                            text = order.paymentMethod,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
 
-            Spacer(modifier = Modifier.size(14.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.size(14.dp))
+@Composable
+private fun EmptyOrdersState() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.History,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.outline
+            )
+
+            Spacer(modifier = Modifier.size(16.dp))
 
             Text(
-                text = "Items",
-                style = MaterialTheme.typography.titleSmall,
+                text = "No Orders Yet",
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
 
             Spacer(modifier = Modifier.size(8.dp))
 
-            order.items.forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 5.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(
-                            text = item.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Quantity: ${item.quantity}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.size(12.dp))
-
-                    Text(
-                        text = "$${String.format(Locale.US, "%.2f", item.price * item.quantity)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.size(14.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.size(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Total",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            Spacer(modifier = Modifier.size(14.dp))
-
-            InfoRow(label = "Address", value = order.address)
-            InfoRow(label = "Payment", value = order.paymentMethod)
-            InfoRow(
-                label = "Order status",
-                value = if (isEmployee) order.status else customerStatusText
+            Text(
+                text = "Start shopping to see your order history here",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp)
             )
         }
     }
 }
 
-private fun getCustomerFriendlyStatus(status: String): String {
-    return when (status) {
-        "Pending" -> "Order sent successfully"
-        "Confirmed" -> "Order processed"
-        "Shipped" -> "Order sent"
-        "Delivered" -> "Delivered"
-        "Cancelled" -> "Cancelled"
-        else -> status
-    }
-}
-
-@Composable
-private fun InfoRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.End
-        )
+private fun formatDate(timestamp: com.google.firebase.Timestamp?): String {
+    return if (timestamp != null) {
+        val date = Date(timestamp.seconds * 1000)
+        SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(date)
+    } else {
+        "Unknown date"
     }
 }

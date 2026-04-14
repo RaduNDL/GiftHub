@@ -36,6 +36,7 @@ import com.example.gifthub.screens.profile.ProfileScreen
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.NotificationViewModel
+import com.example.gifthub.viewmodel.OrderViewModel
 import com.example.gifthub.viewmodel.ProductCustomizationViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 import com.google.firebase.firestore.FirebaseFirestore
@@ -45,6 +46,7 @@ fun GiftHubNavGraph() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
+    val orderViewModel: OrderViewModel = viewModel()
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val normalizedCurrentRoute = currentBackStackEntry?.destination.normalizedRoute()
@@ -146,19 +148,11 @@ fun GiftHubNavGraph() {
             arguments = listOf(navArgument("productId") { type = NavType.StringType })
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId").orEmpty()
-            val productViewModel: ProductViewModel = viewModel()
 
             ProductDetailsScreen(
                 productId = productId,
-                onBack = { navController.popBackStack() },
-                viewModel = productViewModel,
-                cartViewModel = cartViewModel,
-                onGoToCart = {
-                    cartViewModel.loadCart()
-                    navigateToTopLevel(navController, GiftHubDestinations.CART)
-                },
-                onCustomize = {
-                    navController.navigate(GiftHubDestinations.productCustomization(productId))
+                onNavigate = { destination ->
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 }
             )
         }
@@ -227,10 +221,17 @@ fun GiftHubNavGraph() {
         composable(GiftHubDestinations.ORDER_HISTORY) {
             OrderHistoryScreen(
                 onBack = { navController.popBackStack() },
-                onNavigate = { destination ->
-                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
-                }
+                orderViewModel = orderViewModel
             )
+        }
+
+        composable(
+            route = GiftHubDestinations.ORDER_DETAILS,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+            // Order details are shown in dialog, just pop back
+            navController.popBackStack()
         }
 
         composable(GiftHubDestinations.FAVORITES) {
@@ -324,6 +325,7 @@ private fun NavDestination?.normalizedRoute(): String? {
         route == GiftHubDestinations.PRODUCT_DETAILS || route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
         route == GiftHubDestinations.EDIT_PRODUCT || route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
         route == GiftHubDestinations.PRODUCT_CUSTOMIZATION || route.startsWith("product_customization/") -> GiftHubDestinations.PRODUCTS
+        route == GiftHubDestinations.ORDER_DETAILS || route.startsWith("order_details/") -> GiftHubDestinations.ORDER_HISTORY
         else -> route
     }
 }
