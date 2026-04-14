@@ -2,7 +2,6 @@ package com.example.gifthub.navigation
 
 import android.net.Uri
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
@@ -14,9 +13,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.gifthub.notifications.PushNotificationManager
-import com.example.gifthub.notifications.PushTokenManager
-import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.screens.address.ManageAddressScreen
 import com.example.gifthub.screens.auth.LoginScreen
 import com.example.gifthub.screens.auth.RegisterScreen
@@ -35,6 +31,7 @@ import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
+import com.example.gifthub.viewmodel.NotificationViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 
 @Composable
@@ -52,20 +49,13 @@ fun GiftHubNavGraph() {
         GiftHubDestinations.LOGIN
     }
 
-    HandlePushNavigation(
-        navController = navController,
-        isAuthenticated = authViewModel.isAuthenticated
-    )
-
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // ========== AUTH SCREENS ==========
         composable(GiftHubDestinations.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
-                    PushTokenManager.syncCurrentToken()
                     cartViewModel.loadCart()
 
                     navController.navigate(GiftHubDestinations.HOME) {
@@ -87,7 +77,6 @@ fun GiftHubNavGraph() {
         composable(GiftHubDestinations.REGISTER) {
             RegisterScreen(
                 onRegisterSuccess = {
-                    PushTokenManager.syncCurrentToken()
                     cartViewModel.loadCart()
 
                     navController.navigate(GiftHubDestinations.HOME) {
@@ -104,9 +93,9 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== HOME SCREEN ==========
         composable(GiftHubDestinations.HOME) {
             HomeScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.HOME,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -119,9 +108,9 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== PRODUCTS SCREENS ==========
         composable(GiftHubDestinations.PRODUCTS) {
             ProductsScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -146,6 +135,7 @@ fun GiftHubNavGraph() {
             val categoryName = Uri.decode(encodedCategoryName)
 
             ProductsScreen(
+                currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -199,16 +189,15 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== CATEGORIES ==========
         composable(GiftHubDestinations.MANAGE_CATEGORIES) {
             ManageCategoriesScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ========== CART ==========
         composable(GiftHubDestinations.CART) {
             CartScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.CART,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -221,7 +210,6 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== CHECKOUT ==========
         composable(GiftHubDestinations.CHECKOUT) {
             CheckoutScreen(
                 onNavigate = { destination ->
@@ -236,7 +224,6 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== ORDER HISTORY ==========
         composable(GiftHubDestinations.ORDER_HISTORY) {
             OrderHistoryScreen(
                 onBack = { navController.popBackStack() },
@@ -251,9 +238,9 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== FAVORITES ==========
         composable(GiftHubDestinations.FAVORITES) {
             FavoritesScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.FAVORITES,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -266,9 +253,9 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== PROFILE ==========
         composable(GiftHubDestinations.PROFILE) {
             ProfileScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PROFILE,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -280,9 +267,10 @@ fun GiftHubNavGraph() {
             )
         }
 
-        // ========== NOTIFICATIONS ==========
         composable(GiftHubDestinations.NOTIFICATIONS) {
+            val notificationViewModel: NotificationViewModel = viewModel()
             NotificationsScreen(
+                currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.NOTIFICATIONS,
                 onNavigate = { destination ->
                     handleNavigation(
                         navController = navController,
@@ -291,19 +279,16 @@ fun GiftHubNavGraph() {
                         authViewModel = authViewModel
                     )
                 },
-                currentRoute = TODO(),
-                viewModel = TODO()
+                viewModel = notificationViewModel
             )
         }
 
-        // ========== ADDRESS MANAGEMENT ==========
         composable(GiftHubDestinations.MANAGE_ADDRESS) {
             ManageAddressScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ========== PAYMENTS MANAGEMENT ==========
         composable(GiftHubDestinations.SAVED_PAYMENTS) {
             SavedPaymentsScreen(
                 onBack = { navController.popBackStack() }
@@ -312,66 +297,15 @@ fun GiftHubNavGraph() {
     }
 }
 
-/**
- * Handles navigation triggered by push notifications
- */
-@Composable
-private fun HandlePushNavigation(
-    navController: NavHostController,
-    isAuthenticated: Boolean
-) {
-    val pendingNavigation = PushNotificationManager.pendingNavigation
-
-    LaunchedEffect(pendingNavigation, isAuthenticated) {
-        if (!isAuthenticated) return@LaunchedEffect
-
-        val navigation = PushNotificationManager.consumePendingNavigation()
-            ?: return@LaunchedEffect
-
-        val targetRoute = navigation.route.ifBlank { GiftHubDestinations.ORDER_HISTORY }
-
-        when (targetRoute) {
-            GiftHubDestinations.HOME,
-            GiftHubDestinations.PRODUCTS,
-            GiftHubDestinations.CART,
-            GiftHubDestinations.FAVORITES,
-            GiftHubDestinations.PROFILE,
-            GiftHubDestinations.NOTIFICATIONS,
-            GiftHubDestinations.ORDER_HISTORY -> {
-                navigateToTopLevel(navController, targetRoute)
-            }
-
-            else -> {
-                navController.navigate(targetRoute) {
-                    launchSingleTop = true
-                }
-            }
-        }
-
-        // Mark notification as read and delete it
-        navigation.notificationId
-            ?.takeIf { it.isNotBlank() }
-            ?.let { notificationId ->
-                NotificationRepository().deleteNotification(
-                    notificationId = notificationId,
-                    onSuccess = {},
-                    onError = {}
-                )
-            }
-    }
-}
-
-/**
- * Handles regular navigation between screens
- */
 private fun handleNavigation(
     navController: NavHostController,
     currentRoute: String?,
     destination: String,
     authViewModel: AuthViewModel
 ) {
-    // Avoid re-navigation to the same route
-    if (currentRoute == destination) return
+    if (currentRoute == destination) {
+        return
+    }
 
     when (destination) {
         GiftHubDestinations.LOGIN -> {
@@ -402,9 +336,6 @@ private fun handleNavigation(
     }
 }
 
-/**
- * Navigates to a top-level destination while saving/restoring state
- */
 private fun navigateToTopLevel(
     navController: NavHostController,
     route: String
@@ -418,13 +349,6 @@ private fun navigateToTopLevel(
     }
 }
 
-/**
- * Normalizes the current route to handle nested navigation routes
- * For example:
- * - "product_details/xyz" → "products"
- * - "products_by_category/x/y" → "products"
- * - "edit_product/abc" → "products"
- */
 private fun NavDestination?.normalizedRoute(): String? {
     val route = this?.route ?: return null
 

@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,8 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gifthub.models.NotificationDto
 import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.ui.components.GiftHubBottomBar
@@ -51,7 +50,7 @@ import java.util.Locale
 fun NotificationsScreen(
     currentRoute: String,
     onNavigate: (String) -> Unit,
-    viewModel: NotificationViewModel = viewModel()
+    viewModel: NotificationViewModel
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadNotifications()
@@ -150,7 +149,10 @@ fun NotificationsScreen(
                             contentPadding = PaddingValues(bottom = 12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(viewModel.notifications, key = { it.notificationID }) { notification ->
+                            items(
+                                viewModel.notifications,
+                                key = { it.notificationID }
+                            ) { notification ->
                                 NotificationCard(
                                     notification = notification,
                                     onClick = {

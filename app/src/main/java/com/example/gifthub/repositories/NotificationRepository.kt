@@ -3,7 +3,6 @@ package com.example.gifthub.repositories
 import android.content.Context
 import android.util.Log
 import com.example.gifthub.models.NotificationDto
-import com.example.gifthub.notifications.FcmV1Sender
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -20,8 +19,7 @@ class NotificationRepository {
             .document(userId)
             .collection("notifications")
 
-    fun createOrderNotificationAndPush(
-        context: Context,
+    fun createOrderNotification(
         userId: String,
         title: String,
         message: String,
@@ -48,26 +46,6 @@ class NotificationRepository {
 
         docRef.set(payload)
             .addOnSuccessListener {
-                db.collection("users").document(userId).get()
-                    .addOnSuccessListener { userDoc ->
-                        val token = userDoc.getString("fcmToken").orEmpty()
-                        FcmV1Sender.sendDataPush(
-                            context = context,
-                            toToken = token,
-                            title = title,
-                            body = message,
-                            targetRoute = targetRoute,
-                            notificationId = notificationId,
-                            orderId = orderId,
-                            type = type
-                        ) { ok, result ->
-                            Log.d("FcmV1Sender", "send push ok=$ok result=$result")
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("NotificationRepository", "Failed to load token: ${e.message}")
-                    }
-
                 onSuccess()
             }
             .addOnFailureListener { e ->

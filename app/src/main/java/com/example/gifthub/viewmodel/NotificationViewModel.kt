@@ -1,6 +1,5 @@
 package com.example.gifthub.viewmodel
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,36 +32,6 @@ class NotificationViewModel : ViewModel() {
             onError = { error ->
                 errorMessage = error
                 isLoading = false
-            }
-        )
-    }
-
-    fun createOrderNotificationAndPush(
-        context: Context,
-        userId: String,
-        title: String,
-        message: String,
-        orderId: String = "",
-        targetRoute: String = "order_history",
-        type: String = "order_update",
-        onSuccess: () -> Unit = {},
-        onError: (String) -> Unit = {}
-    ) {
-        repository.createOrderNotificationAndPush(
-            context = context,
-            userId = userId,
-            title = title,
-            message = message,
-            orderId = orderId,
-            targetRoute = targetRoute,
-            type = type,
-            onSuccess = {
-                loadNotifications()
-                onSuccess()
-            },
-            onError = { err ->
-                errorMessage = err
-                onError(err)
             }
         )
     }
