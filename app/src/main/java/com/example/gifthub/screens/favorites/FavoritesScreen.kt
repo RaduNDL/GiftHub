@@ -80,11 +80,16 @@ fun FavoritesScreen(
         }
     }
 
+    LaunchedEffect(favorites.size) {
+        if (favorites.isNotEmpty()) {
+            favoriteViewModel.clearUserMessage()
+        }
+    }
+
     LaunchedEffect(favoriteViewModel.userMessage) {
         favoriteViewModel.userMessage?.let { message ->
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(message)
-                favoriteViewModel.clearUserMessage()
             }
         }
     }
@@ -133,7 +138,7 @@ fun FavoritesScreen(
                     FavoritesSummaryCard(itemCount = favorites.size)
                 }
 
-                if (favoriteViewModel.isLoading) {
+                if (favoriteViewModel.isLoading && favorites.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -149,7 +154,10 @@ fun FavoritesScreen(
                         EmptyFavoritesState()
                     }
                 } else {
-                    items(favorites) { product ->
+                    items(
+                        items = favorites,
+                        key = { it.idProduct }
+                    ) { product ->
                         FavoriteRow(
                             product = product,
                             onRemoveFavorite = {

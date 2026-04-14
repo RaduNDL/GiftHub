@@ -46,16 +46,15 @@ class FavoriteRepository {
                 ToggleFavoriteResult(success = true, isFavorite = false)
             } else {
                 val favoriteData = hashMapOf(
-                    "idFavorite" to productId,
-                    "userId" to userId,
                     "productId" to productId,
-                    "addedAt" to System.currentTimeMillis(),
                     "idProduct" to product.idProduct,
                     "name" to product.name,
                     "price" to product.price,
                     "imageUrl" to product.imageUrl,
                     "categoryId" to product.categoryId,
-                    "stock" to product.stock
+                    "stock" to product.stock,
+                    "description" to (product.description ?: ""),
+                    "addedAt" to System.currentTimeMillis()
                 )
 
                 favoriteDoc.set(favoriteData).await()
@@ -80,15 +79,20 @@ class FavoriteRepository {
             val snapshots = favoritesCollection(userId).get().await().documents
 
             snapshots.sortedByDescending { it.getLong("addedAt") ?: 0L }
-                .map { document ->
-                    ProductDto(
-                        idProduct = document.getString("idProduct") ?: "",
-                        name = document.getString("name") ?: "",
-                        price = document.getDouble("price") ?: 0.0,
-                        imageUrl = document.getString("imageUrl") ?: "",
-                        categoryId = document.getString("categoryId") ?: "",
-                        stock = (document.getLong("stock") ?: 0L).toInt()
-                    )
+                .mapNotNull { document ->
+                    try {
+                        ProductDto(
+                            idProduct = document.getString("idProduct") ?: document.id,
+                            name = document.getString("name") ?: "",
+                            price = document.getDouble("price") ?: 0.0,
+                            imageUrl = document.getString("imageUrl") ?: "",
+                            categoryId = document.getString("categoryId") ?: "",
+                            stock = (document.getLong("stock") ?: 0L).toInt(),
+                            description = document.getString("description") ?: ""
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
         } catch (e: Exception) {
             emptyList()

@@ -1,6 +1,7 @@
 package com.example.gifthub.viewmodel
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -15,8 +16,8 @@ class FavoriteViewModel : ViewModel() {
     var favoriteProductIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
-    var favoriteProducts by mutableStateOf<List<ProductDto>>(emptyList())
-        private set
+    private val _favoriteProducts = mutableStateListOf<ProductDto>()
+    val favoriteProducts: List<ProductDto> get() = _favoriteProducts
 
     var isLoading by mutableStateOf(false)
         private set
@@ -32,7 +33,11 @@ class FavoriteViewModel : ViewModel() {
         if (userId.isBlank()) return
 
         viewModelScope.launch {
-            favoriteProductIds = repository.getFavoriteProductIds(userId)
+            try {
+                favoriteProductIds = repository.getFavoriteProductIds(userId)
+            } catch (e: Exception) {
+                userMessage = "Failed to load favorite IDs"
+            }
         }
     }
 
@@ -40,10 +45,17 @@ class FavoriteViewModel : ViewModel() {
         if (userId.isBlank()) return
 
         viewModelScope.launch {
-            isLoading = true
-            favoriteProducts = repository.getFavoriteProducts(userId)
-            favoriteProductIds = favoriteProducts.map { it.idProduct }.toSet()
-            isLoading = false
+            try {
+                isLoading = true
+                val products = repository.getFavoriteProducts(userId)
+                _favoriteProducts.clear()
+                _favoriteProducts.addAll(products)
+                favoriteProductIds = products.map { it.idProduct }.toSet()
+                isLoading = false
+            } catch (e: Exception) {
+                userMessage = "Failed to load favorites"
+                isLoading = false
+            }
         }
     }
 
@@ -63,22 +75,26 @@ class FavoriteViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            val result = repository.toggleFavorite(userId, product)
+            try {
+                val result = repository.toggleFavorite(userId, product)
 
-            if (result.success) {
-                if (result.isFavorite == true) {
-                    favoriteProductIds = favoriteProductIds + product.idProduct
-                    if (favoriteProducts.none { it.idProduct == product.idProduct }) {
-                        favoriteProducts = listOf(product) + favoriteProducts
+                if (result.success) {
+                    if (result.isFavorite == true) {
+                        favoriteProductIds = favoriteProductIds + product.idProduct
+                        if (_favoriteProducts.none { p -> p.idProduct == product.idProduct }) {
+                            _favoriteProducts.add(0, product)
+                        }
+                        userMessage = "${product.name} added to favorites"
+                    } else {
+                        favoriteProductIds = favoriteProductIds - product.idProduct
+                        _favoriteProducts.removeAll { p -> p.idProduct == product.idProduct }
+                        userMessage = "${product.name} removed from favorites"
                     }
-                    userMessage = "${product.name} added to favorites."
                 } else {
-                    favoriteProductIds = favoriteProductIds - product.idProduct
-                    favoriteProducts = favoriteProducts.filterNot { it.idProduct == product.idProduct }
-                    userMessage = "${product.name} removed from favorites."
+                    userMessage = result.errorMessage ?: "Could not update favorites"
                 }
-            } else {
-                userMessage = result.errorMessage ?: "Could not update favorites."
+            } catch (e: Exception) {
+                userMessage = "Error: ${e.message}"
             }
         }
     }
@@ -90,13 +106,17 @@ class FavoriteViewModel : ViewModel() {
         }
 
         viewModelScope.launch {
-            val success = repository.removeFromFavorites(userId, productId)
-            if (success) {
-                favoriteProductIds = favoriteProductIds - productId
-                favoriteProducts = favoriteProducts.filterNot { it.idProduct == productId }
-                userMessage = "$productName removed from favorites."
-            } else {
-                userMessage = "Could not remove product from favorites."
+            try {
+                val success = repository.removeFromFavorites(userId, productId)
+                if (success) {
+                    favoriteProductIds = favoriteProductIds - productId
+                    _favoriteProducts.removeAll { p -> p.idProduct == productId }
+                    userMessage = "$productName removed from favorites"
+                } else {
+                    userMessage = "Could not remove product from favorites"
+                }
+            } catch (e: Exception) {
+                userMessage = "Error: ${e.message}"
             }
         }
     }
