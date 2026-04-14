@@ -10,9 +10,8 @@ data class ToggleFavoriteResult(
     val errorMessage: String? = null
 )
 
-class FavoriteRepository(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
-) {
+class FavoriteRepository {
+    private val firestore = FirebaseFirestore.getInstance()
     private val usersCollection = firestore.collection("users")
 
     private fun favoritesCollection(userId: String) =
@@ -24,27 +23,19 @@ class FavoriteRepository(
                 .get()
                 .await()
                 .documents
-                .mapNotNull { document ->
-                    document.getString("productId")
-                }
+                .mapNotNull { it.getString("productId") }
                 .toSet()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             emptySet()
         }
     }
 
-    suspend fun toggleFavorite(
-        userId: String,
-        product: ProductDto
-    ): ToggleFavoriteResult {
+    suspend fun toggleFavorite(userId: String, product: ProductDto): ToggleFavoriteResult {
         return try {
             val productId = product.idProduct
 
             if (productId.isBlank()) {
-                return ToggleFavoriteResult(
-                    success = false,
-                    errorMessage = "Invalid product id."
-                )
+                return ToggleFavoriteResult(success = false, errorMessage = "Invalid product id.")
             }
 
             val favoriteDoc = favoritesCollection(userId).document(productId)
@@ -52,17 +43,13 @@ class FavoriteRepository(
 
             if (snapshot.exists()) {
                 favoriteDoc.delete().await()
-                ToggleFavoriteResult(
-                    success = true,
-                    isFavorite = false
-                )
+                ToggleFavoriteResult(success = true, isFavorite = false)
             } else {
                 val favoriteData = hashMapOf(
                     "idFavorite" to productId,
                     "userId" to userId,
                     "productId" to productId,
                     "addedAt" to System.currentTimeMillis(),
-
                     "idProduct" to product.idProduct,
                     "name" to product.name,
                     "price" to product.price,
@@ -72,62 +59,38 @@ class FavoriteRepository(
                 )
 
                 favoriteDoc.set(favoriteData).await()
-
-                ToggleFavoriteResult(
-                    success = true,
-                    isFavorite = true
-                )
+                ToggleFavoriteResult(success = true, isFavorite = true)
             }
         } catch (e: Exception) {
-            ToggleFavoriteResult(
-                success = false,
-                errorMessage = e.message ?: "Could not update favorites."
-            )
+            ToggleFavoriteResult(success = false, errorMessage = e.message ?: "Error")
         }
     }
 
     suspend fun removeFromFavorites(userId: String, productId: String): Boolean {
         return try {
-            favoritesCollection(userId)
-                .document(productId)
-                .delete()
-                .await()
+            favoritesCollection(userId).document(productId).delete().await()
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             false
         }
     }
 
     suspend fun getFavoriteProducts(userId: String): List<ProductDto> {
         return try {
-            val snapshots = favoritesCollection(userId)
-                .get()
-                .await()
-                .documents
+            val snapshots = favoritesCollection(userId).get().await().documents
 
-            snapshots
-                .sortedByDescending { document ->
-                    document.getLong("addedAt") ?: 0L
-                }
+            snapshots.sortedByDescending { it.getLong("addedAt") ?: 0L }
                 .map { document ->
-                    val rawCategoryId = document.get("categoryId")
-                    val categoryIdAsString = when (rawCategoryId) {
-                        is String -> rawCategoryId
-                        is Long -> rawCategoryId.toString()
-                        is Int -> rawCategoryId.toString()
-                        else -> ""
-                    }
-
                     ProductDto(
                         idProduct = document.getString("idProduct") ?: "",
                         name = document.getString("name") ?: "",
                         price = document.getDouble("price") ?: 0.0,
                         imageUrl = document.getString("imageUrl") ?: "",
-                        categoryId = categoryIdAsString,
+                        categoryId = document.getString("categoryId") ?: "",
                         stock = (document.getLong("stock") ?: 0L).toInt()
                     )
                 }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             emptyList()
         }
     }

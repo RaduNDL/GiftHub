@@ -9,9 +9,8 @@ import com.example.gifthub.models.ProductDto
 import com.example.gifthub.repositories.FavoriteRepository
 import kotlinx.coroutines.launch
 
-class FavoriteViewModel(
-    private val repository: FavoriteRepository = FavoriteRepository()
-) : ViewModel() {
+class FavoriteViewModel : ViewModel() {
+    private val repository = FavoriteRepository()
 
     var favoriteProductIds by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -52,10 +51,7 @@ class FavoriteViewModel(
         return favoriteProductIds.contains(productId)
     }
 
-    fun toggleFavorite(
-        userId: String,
-        product: ProductDto
-    ) {
+    fun toggleFavorite(userId: String, product: ProductDto) {
         if (userId.isBlank()) {
             userMessage = "You must be logged in."
             return
@@ -72,11 +68,9 @@ class FavoriteViewModel(
             if (result.success) {
                 if (result.isFavorite == true) {
                     favoriteProductIds = favoriteProductIds + product.idProduct
-
                     if (favoriteProducts.none { it.idProduct == product.idProduct }) {
                         favoriteProducts = listOf(product) + favoriteProducts
                     }
-
                     userMessage = "${product.name} added to favorites."
                 } else {
                     favoriteProductIds = favoriteProductIds - product.idProduct
@@ -89,11 +83,7 @@ class FavoriteViewModel(
         }
     }
 
-    fun removeFromFavorites(
-        userId: String,
-        productId: String,
-        productName: String
-    ) {
+    fun removeFromFavorites(userId: String, productId: String, productName: String) {
         if (userId.isBlank()) {
             userMessage = "You must be logged in."
             return
