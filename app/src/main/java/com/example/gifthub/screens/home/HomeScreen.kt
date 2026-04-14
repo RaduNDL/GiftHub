@@ -13,10 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -45,26 +48,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gifthub.models.CategoryDto
+import com.example.gifthub.models.ProductDto
 import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.ui.components.GiftHubBottomBar
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CategoryViewModel
+import com.example.gifthub.viewmodel.ProductViewModel
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
     currentRoute: String,
     onNavigate: (String) -> Unit,
     authViewModel: AuthViewModel,
-    categoryViewModel: CategoryViewModel = viewModel()
+    categoryViewModel: CategoryViewModel = viewModel(),
+    productViewModel: ProductViewModel = viewModel()
 ) {
     val isEmployee = authViewModel.currentUserRole.equals("employee", ignoreCase = true)
     val categories = categoryViewModel.categoriesList
-    val featuredProducts = listOf("Gift Box", "Personalized Mug", "Flower Set")
+    val featuredProducts = productViewModel.productsList.take(3)
 
     var profileMenuExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         categoryViewModel.loadCategories()
+        productViewModel.loadProducts()
     }
 
     Scaffold(
@@ -84,8 +93,10 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(20.dp)
             ) {
+                // Header with user menu
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -139,6 +150,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Categories Section
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -165,11 +177,12 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Categories Loading / Display
                 if (categoryViewModel.isLoading && categories.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(68.dp),
+                            .height(100.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator()
@@ -182,15 +195,16 @@ fun HomeScreen(
                     )
                 } else {
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         items(categories) { category ->
                             CategoryItem(
-                                title = category.name,
+                                category = category,
                                 onClick = {
                                     onNavigate(
                                         GiftHubDestinations.productsByCategory(
-                                            categoryId = category.categoryId.toString(),
+                                            categoryId = category.categoryId,
                                             categoryName = category.name
                                         )
                                     )
@@ -202,25 +216,92 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(28.dp))
 
+                // Featured Products Section
                 Text(
-                    text = "Featured",
+                    text = "Featured Products",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    featuredProducts.forEach { product ->
-                        ProductCard(
-                            title = product,
-                            modifier = Modifier.weight(1f)
-                        )
+                if (productViewModel.isLoading && featuredProducts.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (featuredProducts.isEmpty()) {
+                    Text(
+                        text = "No products available.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(featuredProducts) { product ->
+                            FeaturedProductCard(
+                                product = product,
+                                onClick = {
+                                    onNavigate(
+                                        GiftHubDestinations.productDetails(product.idProduct)
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // All Products Section
+                Text(
+                    text = "All Products",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (productViewModel.isLoading && productViewModel.productsList.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (productViewModel.productsList.isEmpty()) {
+                    Text(
+                        text = "No products available.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(productViewModel.productsList) { product ->
+                            ProductListItem(
+                                product = product,
+                                onClick = {
+                                    onNavigate(
+                                        GiftHubDestinations.productDetails(product.idProduct)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
@@ -228,7 +309,7 @@ fun HomeScreen(
 
 @Composable
 private fun CategoryItem(
-    title: String,
+    category: CategoryDto,
     onClick: () -> Unit
 ) {
     Column(
@@ -241,25 +322,37 @@ private fun CategoryItem(
                 .background(
                     color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape
-                )
-        )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = category.name.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium
+            text = category.name,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1
         )
     }
 }
 
 @Composable
-private fun ProductCard(
-    title: String,
+private fun FeaturedProductCard(
+    product: ProductDto,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier
+            .size(width = 140.dp, height = 180.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -267,25 +360,123 @@ private fun ProductCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(110.dp)
+                    .height(100.dp)
                     .background(
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(22.dp)
+                        shape = RoundedCornerShape(16.dp)
                     )
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = String.format(Locale.US, "$%.2f", product.price),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductListItem(
+    product: ProductDto,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(12.dp)
+                    )
             )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Category ID: ${product.categoryId}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = String.format(Locale.US, "$%.2f", product.price),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Text(
+                        text = "Stock: ${product.stock}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (product.stock > 0) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                }
+            }
         }
     }
 }
