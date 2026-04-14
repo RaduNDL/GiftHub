@@ -1,5 +1,6 @@
 package com.example.gifthub.screens.categories
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,8 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -41,9 +43,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.gifthub.models.CategoryDto
 import com.example.gifthub.viewmodel.CategoryViewModel
 
@@ -56,6 +61,7 @@ fun ManageCategoriesScreen(
     var categoryToEdit by remember { mutableStateOf<CategoryDto?>(null) }
     var categoryName by remember { mutableStateOf("") }
     var categoryDesc by remember { mutableStateOf("") }
+    var categoryImageUrl by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.loadCategories()
@@ -92,6 +98,7 @@ fun ManageCategoriesScreen(
                     categoryToEdit = null
                     categoryName = ""
                     categoryDesc = ""
+                    categoryImageUrl = ""
                     showDialog = true
                 },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Add Category") },
@@ -104,7 +111,8 @@ fun ManageCategoriesScreen(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(paddingValues),
+            color = MaterialTheme.colorScheme.background
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
 
@@ -129,14 +137,17 @@ fun ManageCategoriesScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 } else if (viewModel.categoriesList.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No categories available.")
+                        Text(
+                            text = "No categories available.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 } else {
                     LazyColumn(
@@ -151,6 +162,7 @@ fun ManageCategoriesScreen(
                                     categoryToEdit = category
                                     categoryName = category.name
                                     categoryDesc = category.description
+                                    categoryImageUrl = category.imageUrl
                                     showDialog = true
                                 },
                                 onDelete = {
@@ -169,43 +181,59 @@ fun ManageCategoriesScreen(
             onDismissRequest = { showDialog = false },
             title = {
                 Text(
-                    if (categoryToEdit == null) "Add Category" else "Edit Category"
+                    text = if (categoryToEdit == null) "Add Category" else "Edit Category",
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = categoryName,
                         onValueChange = { categoryName = it },
                         label = { Text("Name") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
 
                     OutlinedTextField(
                         value = categoryDesc,
                         onValueChange = { categoryDesc = it },
                         label = { Text("Description") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = categoryImageUrl,
+                        onValueChange = { categoryImageUrl = it },
+                        label = { Text("Image URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (categoryToEdit == null) {
-                            viewModel.addCategory(
-                                name = categoryName,
-                                description = categoryDesc
-                            )
-                        } else {
-                            viewModel.updateCategory(
-                                categoryId = categoryToEdit!!.categoryId,
-                                name = categoryName,
-                                description = categoryDesc
-                            )
+                        if (categoryName.isNotBlank()) {
+                            if (categoryToEdit == null) {
+                                viewModel.addCategory(
+                                    name = categoryName.trim(),
+                                    description = categoryDesc.trim(),
+                                    imageUrl = categoryImageUrl.trim()
+                                )
+                            } else {
+                                viewModel.updateCategory(
+                                    categoryId = categoryToEdit!!.categoryId,
+                                    name = categoryName.trim(),
+                                    description = categoryDesc.trim(),
+                                    imageUrl = categoryImageUrl.trim()
+                                )
+                            }
+                            showDialog = false
                         }
-                        showDialog = false
                     }
                 ) {
                     Text("Save")
@@ -230,8 +258,11 @@ fun CategoryCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -240,18 +271,50 @@ fun CategoryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (category.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = category.imageUrl,
+                    contentDescription = category.name,
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = category.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = category.name,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.padding(top = 4.dp))
 
                 Text(
                     text = category.description,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

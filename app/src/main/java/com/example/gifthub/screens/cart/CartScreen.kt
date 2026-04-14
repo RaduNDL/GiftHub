@@ -216,6 +216,22 @@ fun CartItemCard(
                     fontWeight = FontWeight.Bold
                 )
 
+                if (item.customText.isNotEmpty()) {
+                    Text(
+                        text = "Engraving: ${item.customText}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (item.customColor.isNotEmpty() && item.customColor != "Default") {
+                    Text(
+                        text = "Color: ${item.customColor}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(

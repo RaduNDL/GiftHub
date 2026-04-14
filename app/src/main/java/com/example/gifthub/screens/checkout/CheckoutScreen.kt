@@ -56,7 +56,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,7 +82,7 @@ fun CheckoutScreen(
 ) {
     val cart = cartViewModel.cart
     val snackbarHostState = remember { SnackbarHostState() }
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
     var selectedAddressId by remember { mutableStateOf("") }
@@ -204,13 +203,11 @@ fun CheckoutScreen(
             },
             confirmButton = {
                 Button(onClick = {
-                    showSuccessDialog = false
                     onNavigate(GiftHubDestinations.ORDER_HISTORY)
                 }) { Text("View Orders") }
             },
             dismissButton = {
                 TextButton(onClick = {
-                    showSuccessDialog = false
                     onNavigate(GiftHubDestinations.PRODUCTS)
                 }) { Text("Continue Shopping") }
             }
@@ -455,6 +452,20 @@ fun CheckoutScreen(
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.Medium
                                         )
+                                        if (item.customText.isNotEmpty()) {
+                                            Text(
+                                                text = "Engraving: ${item.customText}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (item.customColor.isNotEmpty() && item.customColor != "Default") {
+                                            Text(
+                                                text = "Color: ${item.customColor}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                         Text(
                                             "Qty: ${item.quantity}",
                                             style = MaterialTheme.typography.bodySmall,
@@ -549,7 +560,6 @@ fun CheckoutScreen(
                                     onSuccess = { orderId ->
                                         cartViewModel.loadCart()
                                         placedOrderId = orderId
-                                        showSuccessDialog = true
                                     },
                                     onError = { error ->
                                         coroutineScope.launch {

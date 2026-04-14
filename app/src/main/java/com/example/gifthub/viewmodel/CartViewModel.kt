@@ -30,7 +30,6 @@ class CartViewModel : ViewModel() {
 
     fun loadCart() {
         isLoading = true
-
         repository.getCart(
             onSuccess = { loadedCart ->
                 cart = loadedCart
@@ -54,9 +53,7 @@ class CartViewModel : ViewModel() {
             userMessage = "Invalid quantity"
             return
         }
-
         isLoading = true
-
         repository.addToCart(
             product = product,
             quantityToAdd = quantity,
@@ -80,9 +77,39 @@ class CartViewModel : ViewModel() {
         )
     }
 
+    fun addCustomizedToCart(product: ProductDto, quantity: Int, customText: String, customColor: String) {
+        if (quantity <= 0) {
+            userMessage = "Invalid quantity"
+            return
+        }
+        isLoading = true
+        repository.addCustomizedToCart(
+            product = product,
+            quantityToAdd = quantity,
+            customText = customText,
+            customColor = customColor,
+            onSuccess = {
+                repository.getCart(
+                    onSuccess = { loadedCart ->
+                        cart = loadedCart
+                        userMessage = "Personalized product added to cart"
+                        isLoading = false
+                    },
+                    onError = { error ->
+                        userMessage = error
+                        isLoading = false
+                    }
+                )
+            },
+            onError = { error ->
+                userMessage = error
+                isLoading = false
+            }
+        )
+    }
+
     fun updateQuantity(productId: String, newQuantity: Int) {
         isLoading = true
-
         repository.updateItemQuantity(
             productId = productId,
             newQuantity = newQuantity,
@@ -107,7 +134,6 @@ class CartViewModel : ViewModel() {
 
     fun removeFromCart(productId: String) {
         isLoading = true
-
         repository.removeFromCart(
             productId = productId,
             onSuccess = {
@@ -132,7 +158,6 @@ class CartViewModel : ViewModel() {
 
     fun clearCart() {
         isLoading = true
-
         repository.clearCart(
             onSuccess = {
                 cart = ShoppingCartDto(

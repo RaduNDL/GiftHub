@@ -271,4 +271,58 @@ class CartRepository {
                 onError(exception.message ?: "Failed to recalculate cart")
             }
     }
+    fun addCustomizedToCart(
+        product: ProductDto,
+        quantityToAdd: Int,
+        customText: String,
+        customColor: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val uid = currentUserId()
+        if (uid == null) {
+            onError("User not authenticated")
+            return
+        }
+
+        if (quantityToAdd <= 0) {
+            onError("Invalid quantity")
+            return
+        }
+
+        val cartRef = cartDocument(uid)
+        val itemRef = cartItemsCollection(uid).document(product.idProduct)
+
+        cartRef.set(
+            mapOf("cartId" to "current", "userId" to uid),
+            SetOptions.merge()
+        ).addOnSuccessListener {
+            itemRef.get().addOnSuccessListener { snapshot ->
+                val existingQuantity = snapshot.getLong("quantity")?.toInt() ?: 0
+                val newQuantity = existingQuantity + quantityToAdd
+
+                itemRef.set(
+                    mapOf(
+                        "productId" to product.idProduct,
+                        "name" to product.name,
+                        "price" to product.price,
+                        "quantity" to newQuantity,
+                        "imageUrl" to product.imageUrl,
+                        "customText" to customText,
+                        "customColor" to customColor,
+                        "addedAt" to System.currentTimeMillis()
+                    ),
+                    SetOptions.merge()
+                ).addOnSuccessListener {
+                    recalculateCartTotal(uid, onSuccess, onError)
+                }.addOnFailureListener { exception ->
+                    onError(exception.message ?: "Failed to add item to cart")
+                }
+            }.addOnFailureListener { exception ->
+                onError(exception.message ?: "Failed to read cart item")
+            }
+        }.addOnFailureListener { exception ->
+            onError(exception.message ?: "Failed to initialize cart")
+        }
+    }
 }
