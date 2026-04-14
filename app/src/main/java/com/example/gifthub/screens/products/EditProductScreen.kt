@@ -17,11 +17,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,7 +76,7 @@ fun EditProductScreen(
     }
 
     LaunchedEffect(productId) {
-        viewModel.getProductDetails(productId)
+        viewModel.loadProductById(productId)
     }
 
     LaunchedEffect(product) {
@@ -85,10 +85,10 @@ fun EditProductScreen(
             priceStr = it.price.toString()
             stockStr = it.stock.toString()
             imageUrl = it.imageUrl
-            selectedCategoryId = it.categoryId.toString()
+            selectedCategoryId = it.categoryId
 
             val matchedCategory = categories.firstOrNull { category ->
-                category.categoryId == it.categoryId.toString()
+                category.categoryId == it.categoryId
             }
             selectedCategoryName = matchedCategory?.name ?: ""
         }

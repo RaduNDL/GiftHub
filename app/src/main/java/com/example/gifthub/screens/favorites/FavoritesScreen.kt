@@ -52,6 +52,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.gifthub.data.FirebaseAuthProvider
 import com.example.gifthub.models.ProductDto
+import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.ui.components.GiftHubBottomBar
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
@@ -74,6 +75,7 @@ fun FavoritesScreen(
 
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotBlank()) {
+            favoriteViewModel.loadFavoriteIds(currentUserId)
             favoriteViewModel.loadFavoriteProducts(currentUserId)
         }
     }
@@ -159,6 +161,9 @@ fun FavoritesScreen(
                             },
                             onAddToCart = {
                                 cartViewModel.addToCart(product, quantity = 1)
+                            },
+                            onViewDetails = {
+                                onNavigate(GiftHubDestinations.productDetails(product.idProduct))
                             }
                         )
                     }
@@ -250,7 +255,8 @@ private fun FavoritesSummaryCard(itemCount: Int) {
 private fun FavoriteRow(
     product: ProductDto,
     onRemoveFavorite: () -> Unit,
-    onAddToCart: () -> Unit
+    onAddToCart: () -> Unit,
+    onViewDetails: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -327,35 +333,57 @@ private fun FavoriteRow(
                 }
             }
 
-            // Add to Cart Button
-            Button(
-                onClick = onAddToCart,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .padding(horizontal = 16.dp, vertical = 0.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.ShoppingCart,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onPrimary
-                )
-                Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "Add to Cart",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Button(
+                    onClick = onViewDetails,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Text(
+                        text = "View",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Button(
+                    onClick = onAddToCart,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ShoppingCart,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = "Add",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.size(12.dp))
+            Spacer(modifier = Modifier.size(4.dp))
         }
     }
 }

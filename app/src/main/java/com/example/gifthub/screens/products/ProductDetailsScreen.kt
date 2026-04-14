@@ -20,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Button
@@ -76,14 +75,14 @@ fun ProductDetailsScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var quantity by remember { mutableStateOf(1) }
-    var selectedQuantity by remember { mutableStateOf(1) }
 
-    val product = productViewModel.productsList.firstOrNull { it.idProduct == productId }
+    val product = productViewModel.selectedProduct
     val isFavorite = remember(favoriteViewModel.favoriteProductIds) {
         favoriteViewModel.isFavorite(productId)
     }
 
-    LaunchedEffect(currentUserId) {
+    LaunchedEffect(productId) {
+        productViewModel.loadProductById(productId)
         if (currentUserId.isNotBlank()) {
             favoriteViewModel.loadFavoriteIds(currentUserId)
         }
@@ -157,7 +156,7 @@ fun ProductDetailsScreen(
                 .padding(paddingValues),
             color = MaterialTheme.colorScheme.background
         ) {
-            if (product == null) {
+            if (productViewModel.isLoading || product == null) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -171,7 +170,6 @@ fun ProductDetailsScreen(
                         .verticalScroll(rememberScrollState())
                         .navigationBarsPadding()
                 ) {
-                    // Product Image
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -188,11 +186,9 @@ fun ProductDetailsScreen(
                         )
                     }
 
-                    // Product Info
                     Column(
                         modifier = Modifier.padding(20.dp)
                     ) {
-                        // Title and Price
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -217,7 +213,6 @@ fun ProductDetailsScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Stock Status
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -247,7 +242,6 @@ fun ProductDetailsScreen(
                             }
                         }
 
-                        // Description
                         if (product.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
@@ -263,7 +257,6 @@ fun ProductDetailsScreen(
                             )
                         }
 
-                        // Category
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = "Category",
@@ -277,7 +270,6 @@ fun ProductDetailsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        // Quantity Selector
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
                             text = "Quantity",
@@ -320,7 +312,6 @@ fun ProductDetailsScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Add to Cart Button
                         Button(
                             onClick = {
                                 if (product.customizable) {
@@ -362,7 +353,6 @@ fun ProductDetailsScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Go to Cart Button
                         OutlinedButton(
                             onClick = { onNavigate(GiftHubDestinations.CART) },
                             modifier = Modifier

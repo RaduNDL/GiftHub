@@ -47,6 +47,7 @@ fun GiftHubNavGraph() {
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
     val orderViewModel: OrderViewModel = viewModel()
+    val productViewModel: ProductViewModel = viewModel()
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val normalizedCurrentRoute = currentBackStackEntry?.destination.normalizedRoute()
@@ -153,7 +154,8 @@ fun GiftHubNavGraph() {
                 productId = productId,
                 onNavigate = { destination ->
                     handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
-                }
+                },
+                productViewModel = productViewModel
             )
         }
 
@@ -186,7 +188,6 @@ fun GiftHubNavGraph() {
             arguments = listOf(navArgument("productId") { type = NavType.StringType })
         ) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId").orEmpty()
-            val productViewModel: ProductViewModel = viewModel()
 
             EditProductScreen(
                 productId = productId,
@@ -230,7 +231,6 @@ fun GiftHubNavGraph() {
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
-            // Order details are shown in dialog, just pop back
             navController.popBackStack()
         }
 
