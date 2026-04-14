@@ -45,7 +45,9 @@ class CartRepository {
                                     name = document.getString("name") ?: "",
                                     price = document.getDouble("price") ?: 0.0,
                                     quantity = document.getLong("quantity")?.toInt() ?: 1,
-                                    imageUrl = document.getString("imageUrl") ?: ""
+                                    imageUrl = document.getString("imageUrl") ?: "",
+                                    customText = document.getString("customText") ?: "",
+                                    customColor = document.getString("customColor") ?: ""
                                 )
                             }
 
@@ -75,220 +77,8 @@ class CartRepository {
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        val uid = currentUserId()
-        android.util.Log.d("CART_DEBUG", "Current user id = $uid")
-        android.util.Log.d("CART_DEBUG", "Product id = ${product.idProduct}")
-        android.util.Log.d("CART_DEBUG", "Quantity = $quantityToAdd")
-
-        if (uid == null) {
-            onError("User not authenticated")
-            return
-        }
-
-        if (quantityToAdd <= 0) {
-            onError("Invalid quantity")
-            return
-        }
-
-        val cartRef = cartDocument(uid)
-        val itemRef = cartItemsCollection(uid).document(product.idProduct)
-
-        cartRef.set(
-            mapOf(
-                "cartId" to "current",
-                "userId" to uid
-            ),
-            SetOptions.merge()
-        ).addOnSuccessListener {
-            android.util.Log.d("CART_DEBUG", "Cart document created/updated successfully")
-
-            itemRef.get()
-                .addOnSuccessListener { snapshot ->
-                    val existingQuantity = snapshot.getLong("quantity")?.toInt() ?: 0
-                    val newQuantity = existingQuantity + quantityToAdd
-
-                    android.util.Log.d("CART_DEBUG", "Existing quantity = $existingQuantity")
-                    android.util.Log.d("CART_DEBUG", "New quantity = $newQuantity")
-
-                    itemRef.set(
-                        mapOf(
-                            "productId" to product.idProduct,
-                            "name" to product.name,
-                            "price" to product.price,
-                            "quantity" to newQuantity,
-                            "imageUrl" to product.imageUrl,
-                            "addedAt" to System.currentTimeMillis()
-                        ),
-                        SetOptions.merge()
-                    ).addOnSuccessListener {
-                        android.util.Log.d("CART_DEBUG", "Item saved successfully")
-
-                        recalculateCartTotal(
-                            userId = uid,
-                            onSuccess = {
-                                android.util.Log.d("CART_DEBUG", "Cart total recalculated successfully")
-                                onSuccess()
-                            },
-                            onError = { error ->
-                                android.util.Log.e("CART_DEBUG", "Recalculate total failed: $error")
-                                onError(error)
-                            }
-                        )
-                    }.addOnFailureListener { exception ->
-                        android.util.Log.e("CART_DEBUG", "Failed saving item", exception)
-                        onError(exception.message ?: "Failed to add item to cart")
-                    }
-                }
-                .addOnFailureListener { exception ->
-                    android.util.Log.e("CART_DEBUG", "Failed reading existing cart item", exception)
-                    onError(exception.message ?: "Failed to read cart item")
-                }
-        }.addOnFailureListener { exception ->
-            android.util.Log.e("CART_DEBUG", "Failed initializing cart", exception)
-            onError(exception.message ?: "Failed to initialize cart")
-        }
-    }
-    fun updateItemQuantity(
-        productId: String,
-        newQuantity: Int,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
         val uid = currentUserId() ?: return onError("User not authenticated")
-        val itemRef = cartItemsCollection(uid).document(productId)
-
-        if (newQuantity <= 0) {
-            itemRef.delete()
-                .addOnSuccessListener {
-                    recalculateCartTotal(uid, onSuccess, onError)
-                }
-                .addOnFailureListener { exception ->
-                    onError(exception.message ?: "Failed to remove item")
-                }
-            return
-        }
-
-        itemRef.set(
-            mapOf(
-                "quantity" to newQuantity,
-                "addedAt" to System.currentTimeMillis()
-            ),
-            SetOptions.merge()
-        ).addOnSuccessListener {
-            recalculateCartTotal(uid, onSuccess, onError)
-        }.addOnFailureListener { exception ->
-            onError(exception.message ?: "Failed to update quantity")
-        }
-    }
-
-    fun removeFromCart(
-        productId: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val uid = currentUserId() ?: return onError("User not authenticated")
-
-        cartItemsCollection(uid)
-            .document(productId)
-            .delete()
-            .addOnSuccessListener {
-                recalculateCartTotal(uid, onSuccess, onError)
-            }
-            .addOnFailureListener { exception ->
-                onError(exception.message ?: "Failed to remove item from cart")
-            }
-    }
-
-    fun clearCart(
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val uid = currentUserId() ?: return onError("User not authenticated")
-
-        cartItemsCollection(uid)
-            .get()
-            .addOnSuccessListener { itemsSnapshot ->
-                val batch = db.batch()
-
-                itemsSnapshot.documents.forEach { document ->
-                    batch.delete(document.reference)
-                }
-
-                batch.commit()
-                    .addOnSuccessListener {
-                        cartDocument(uid)
-                            .set(
-                                mapOf(
-                                    "cartId" to "current",
-                                    "userId" to uid,
-                                    "temporaryValue" to 0.0
-                                ),
-                                SetOptions.merge()
-                            )
-                            .addOnSuccessListener { onSuccess() }
-                            .addOnFailureListener { exception ->
-                                onError(exception.message ?: "Failed to reset cart")
-                            }
-                    }
-                    .addOnFailureListener { exception ->
-                        onError(exception.message ?: "Failed to clear cart items")
-                    }
-            }
-            .addOnFailureListener { exception ->
-                onError(exception.message ?: "Failed to load cart items")
-            }
-    }
-
-    private fun recalculateCartTotal(
-        userId: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        cartItemsCollection(userId)
-            .get()
-            .addOnSuccessListener { itemsSnapshot ->
-                val total = itemsSnapshot.documents.sumOf { document ->
-                    val price = document.getDouble("price") ?: 0.0
-                    val quantity = document.getLong("quantity")?.toInt() ?: 0
-                    price * quantity
-                }
-
-                cartDocument(userId)
-                    .set(
-                        mapOf(
-                            "cartId" to "current",
-                            "userId" to userId,
-                            "temporaryValue" to total
-                        ),
-                        SetOptions.merge()
-                    )
-                    .addOnSuccessListener { onSuccess() }
-                    .addOnFailureListener { exception ->
-                        onError(exception.message ?: "Failed to update cart total")
-                    }
-            }
-            .addOnFailureListener { exception ->
-                onError(exception.message ?: "Failed to recalculate cart")
-            }
-    }
-    fun addCustomizedToCart(
-        product: ProductDto,
-        quantityToAdd: Int,
-        customText: String,
-        customColor: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val uid = currentUserId()
-        if (uid == null) {
-            onError("User not authenticated")
-            return
-        }
-
-        if (quantityToAdd <= 0) {
-            onError("Invalid quantity")
-            return
-        }
+        if (quantityToAdd <= 0) return onError("Invalid quantity")
 
         val cartRef = cartDocument(uid)
         val itemRef = cartItemsCollection(uid).document(product.idProduct)
@@ -308,21 +98,79 @@ class CartRepository {
                         "price" to product.price,
                         "quantity" to newQuantity,
                         "imageUrl" to product.imageUrl,
-                        "customText" to customText,
-                        "customColor" to customColor,
                         "addedAt" to System.currentTimeMillis()
                     ),
                     SetOptions.merge()
                 ).addOnSuccessListener {
                     recalculateCartTotal(uid, onSuccess, onError)
-                }.addOnFailureListener { exception ->
-                    onError(exception.message ?: "Failed to add item to cart")
-                }
-            }.addOnFailureListener { exception ->
-                onError(exception.message ?: "Failed to read cart item")
+                }.addOnFailureListener { onError(it.message ?: "Error") }
             }
-        }.addOnFailureListener { exception ->
-            onError(exception.message ?: "Failed to initialize cart")
+        }.addOnFailureListener { onError(it.message ?: "Error") }
+    }
+
+    fun addCustomizedToCart(
+        product: ProductDto,
+        quantityToAdd: Int,
+        customText: String,
+        customColor: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val uid = currentUserId() ?: return onError("User not authenticated")
+        val itemRef = cartItemsCollection(uid).document("${product.idProduct}_custom_${System.currentTimeMillis()}")
+
+        cartDocument(uid).set(
+            mapOf("cartId" to "current", "userId" to uid),
+            SetOptions.merge()
+        ).addOnSuccessListener {
+            itemRef.set(
+                mapOf(
+                    "productId" to product.idProduct,
+                    "name" to product.name,
+                    "price" to product.price,
+                    "quantity" to quantityToAdd,
+                    "imageUrl" to product.imageUrl,
+                    "customText" to customText,
+                    "customColor" to customColor,
+                    "addedAt" to System.currentTimeMillis()
+                )
+            ).addOnSuccessListener {
+                recalculateCartTotal(uid, onSuccess, onError)
+            }.addOnFailureListener { onError(it.message ?: "Error") }
+        }
+    }
+
+    fun updateItemQuantity(productId: String, newQuantity: Int, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val uid = currentUserId() ?: return onError("User not authenticated")
+        val itemRef = cartItemsCollection(uid).document(productId)
+
+        if (newQuantity <= 0) {
+            itemRef.delete().addOnSuccessListener { recalculateCartTotal(uid, onSuccess, onError) }
+        } else {
+            itemRef.update("quantity", newQuantity).addOnSuccessListener { recalculateCartTotal(uid, onSuccess, onError) }
+        }
+    }
+
+    fun removeFromCart(productId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val uid = currentUserId() ?: return onError("User not authenticated")
+        cartItemsCollection(uid).document(productId).delete().addOnSuccessListener { recalculateCartTotal(uid, onSuccess, onError) }
+    }
+
+    fun clearCart(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val uid = currentUserId() ?: return onError("User not authenticated")
+        cartItemsCollection(uid).get().addOnSuccessListener { snapshot ->
+            val batch = db.batch()
+            snapshot.documents.forEach { batch.delete(it.reference) }
+            batch.commit().addOnSuccessListener {
+                cartDocument(uid).update("temporaryValue", 0.0).addOnSuccessListener { onSuccess() }
+            }
+        }
+    }
+
+    private fun recalculateCartTotal(userId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        cartItemsCollection(userId).get().addOnSuccessListener { snapshot ->
+            val total = snapshot.documents.sumOf { (it.getDouble("price") ?: 0.0) * (it.getLong("quantity")?.toInt() ?: 0) }
+            cartDocument(userId).update("temporaryValue", total).addOnSuccessListener { onSuccess() }
         }
     }
 }

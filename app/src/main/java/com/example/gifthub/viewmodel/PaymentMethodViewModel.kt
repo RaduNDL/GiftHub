@@ -26,10 +26,9 @@ class PaymentMethodViewModel : ViewModel() {
     fun loadPaymentMethods() {
         isLoading = true
         errorMessage = null
-
         repository.getPaymentMethods(
-            onSuccess = {
-                paymentMethods = it
+            onSuccess = { methods ->
+                paymentMethods = methods
                 isLoading = false
             },
             onError = { error ->
@@ -39,26 +38,21 @@ class PaymentMethodViewModel : ViewModel() {
         )
     }
 
-    fun savePaymentMethod(
-        transactionId: String,
-        method: String,
-        paymentStatus: String
-    ) {
-        if (method.isBlank() || paymentStatus.isBlank()) {
-            errorMessage = "All fields are required."
+    fun savePaymentMethod(transactionId: String, method: String, paymentStatus: String) {
+        if (method.isBlank()) {
+            userMessage = "Method name cannot be empty"
             return
         }
 
         isLoading = true
-        errorMessage = null
-
-        if (transactionId.isBlank()) {
+        if (transactionId.isEmpty()) {
+            // Add new
             repository.addPaymentMethod(
                 method = method,
                 paymentStatus = paymentStatus,
                 onSuccess = {
-                    userMessage = "Payment method added successfully."
                     loadPaymentMethods()
+                    userMessage = "Payment method added"
                 },
                 onError = { error ->
                     errorMessage = error
@@ -66,16 +60,18 @@ class PaymentMethodViewModel : ViewModel() {
                 }
             )
         } else {
+            // Update existing
+            val updateDto = PaymentMethodDto(
+                transactionId = transactionId,
+                orderID = "", 
+                method = method,
+                paymentStatus = paymentStatus
+            )
             repository.updatePaymentMethod(
-                paymentMethod = PaymentMethodDto(
-                    transactionId = transactionId,
-                    orderID = "",
-                    method = method.trim(),
-                    paymentStatus = paymentStatus.trim()
-                ),
+                paymentMethod = updateDto,
                 onSuccess = {
-                    userMessage = "Payment method updated successfully."
                     loadPaymentMethods()
+                    userMessage = "Payment method updated"
                 },
                 onError = { error ->
                     errorMessage = error
@@ -86,19 +82,12 @@ class PaymentMethodViewModel : ViewModel() {
     }
 
     fun deletePaymentMethod(transactionId: String) {
-        if (transactionId.isBlank()) {
-            errorMessage = "Invalid payment method ID."
-            return
-        }
-
         isLoading = true
-        errorMessage = null
-
         repository.deletePaymentMethod(
             transactionId = transactionId,
             onSuccess = {
-                userMessage = "Payment method deleted successfully."
                 loadPaymentMethods()
+                userMessage = "Payment method deleted"
             },
             onError = { error ->
                 errorMessage = error

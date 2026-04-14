@@ -3,6 +3,8 @@ package com.example.gifthub.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -13,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.gifthub.repositories.ProductCustomizationRepositoryImpl
 import com.example.gifthub.screens.address.ManageAddressScreen
 import com.example.gifthub.screens.auth.LoginScreen
 import com.example.gifthub.screens.auth.RegisterScreen
@@ -26,13 +29,16 @@ import com.example.gifthub.screens.orders.OrderHistoryScreen
 import com.example.gifthub.screens.payments.SavedPaymentsScreen
 import com.example.gifthub.screens.products.AddProductScreen
 import com.example.gifthub.screens.products.EditProductScreen
+import com.example.gifthub.screens.products.ProductCustomizationScreen
 import com.example.gifthub.screens.products.ProductDetailsScreen
 import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.NotificationViewModel
+import com.example.gifthub.viewmodel.ProductCustomizationViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun GiftHubNavGraph() {
@@ -57,7 +63,6 @@ fun GiftHubNavGraph() {
             LoginScreen(
                 onLoginSuccess = {
                     cartViewModel.loadCart()
-
                     navController.navigate(GiftHubDestinations.HOME) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             inclusive = true
@@ -78,7 +83,6 @@ fun GiftHubNavGraph() {
             RegisterScreen(
                 onRegisterSuccess = {
                     cartViewModel.loadCart()
-
                     navController.navigate(GiftHubDestinations.HOME) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             inclusive = true
@@ -86,9 +90,7 @@ fun GiftHubNavGraph() {
                         launchSingleTop = true
                     }
                 },
-                onGoToLogin = {
-                    navController.popBackStack()
-                },
+                onGoToLogin = { navController.popBackStack() },
                 viewModel = authViewModel
             )
         }
@@ -97,12 +99,7 @@ fun GiftHubNavGraph() {
             HomeScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.HOME,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 authViewModel = authViewModel
             )
@@ -112,12 +109,7 @@ fun GiftHubNavGraph() {
             ProductsScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 authViewModel = authViewModel
             )
@@ -137,12 +129,7 @@ fun GiftHubNavGraph() {
             ProductsScreen(
                 currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 authViewModel = authViewModel,
                 selectedCategoryId = categoryId,
@@ -151,9 +138,7 @@ fun GiftHubNavGraph() {
         }
 
         composable(GiftHubDestinations.ADD_PRODUCT) {
-            AddProductScreen(
-                onBack = { navController.popBackStack() }
-            )
+            AddProductScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
@@ -169,6 +154,33 @@ fun GiftHubNavGraph() {
                 viewModel = productViewModel,
                 cartViewModel = cartViewModel,
                 onGoToCart = {
+                    cartViewModel.loadCart()
+                    navigateToTopLevel(navController, GiftHubDestinations.CART)
+                },
+                onCustomize = {
+                    navController.navigate(GiftHubDestinations.productCustomization(productId))
+                }
+            )
+        }
+
+        composable(
+            route = GiftHubDestinations.PRODUCT_CUSTOMIZATION,
+            arguments = listOf(navArgument("productId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId").orEmpty()
+
+            val customizationViewModel: ProductCustomizationViewModel = viewModel(
+                factory = ProductCustomizationViewModelFactory(
+                    repository = ProductCustomizationRepositoryImpl(FirebaseFirestore.getInstance())
+                )
+            )
+
+            ProductCustomizationScreen(
+                productId = productId,
+                viewModel = customizationViewModel,
+                cartViewModel = cartViewModel,
+                onBack = { navController.popBackStack() },
+                onAddedToCart = {
                     cartViewModel.loadCart()
                     navigateToTopLevel(navController, GiftHubDestinations.CART)
                 }
@@ -190,21 +202,14 @@ fun GiftHubNavGraph() {
         }
 
         composable(GiftHubDestinations.MANAGE_CATEGORIES) {
-            ManageCategoriesScreen(
-                onBack = { navController.popBackStack() }
-            )
+            ManageCategoriesScreen(onBack = { navController.popBackStack() })
         }
 
         composable(GiftHubDestinations.CART) {
             CartScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.CART,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 viewModel = cartViewModel
             )
@@ -213,12 +218,7 @@ fun GiftHubNavGraph() {
         composable(GiftHubDestinations.CHECKOUT) {
             CheckoutScreen(
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 cartViewModel = cartViewModel
             )
@@ -228,12 +228,7 @@ fun GiftHubNavGraph() {
             OrderHistoryScreen(
                 onBack = { navController.popBackStack() },
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 }
             )
         }
@@ -242,12 +237,7 @@ fun GiftHubNavGraph() {
             FavoritesScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.FAVORITES,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 authViewModel = authViewModel
             )
@@ -257,12 +247,7 @@ fun GiftHubNavGraph() {
             ProfileScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.PROFILE,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 }
             )
         }
@@ -272,27 +257,18 @@ fun GiftHubNavGraph() {
             NotificationsScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.NOTIFICATIONS,
                 onNavigate = { destination ->
-                    handleNavigation(
-                        navController = navController,
-                        currentRoute = normalizedCurrentRoute,
-                        destination = destination,
-                        authViewModel = authViewModel
-                    )
+                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
                 viewModel = notificationViewModel
             )
         }
 
         composable(GiftHubDestinations.MANAGE_ADDRESS) {
-            ManageAddressScreen(
-                onBack = { navController.popBackStack() }
-            )
+            ManageAddressScreen(onBack = { navController.popBackStack() })
         }
 
         composable(GiftHubDestinations.SAVED_PAYMENTS) {
-            SavedPaymentsScreen(
-                onBack = { navController.popBackStack() }
-            )
+            SavedPaymentsScreen(onBack = { navController.popBackStack() })
         }
     }
 }
@@ -303,17 +279,13 @@ private fun handleNavigation(
     destination: String,
     authViewModel: AuthViewModel
 ) {
-    if (currentRoute == destination) {
-        return
-    }
+    if (currentRoute == destination) return
 
     when (destination) {
         GiftHubDestinations.LOGIN -> {
             authViewModel.logout()
             navController.navigate(GiftHubDestinations.LOGIN) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    inclusive = true
-                }
+                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 launchSingleTop = true
             }
         }
@@ -329,9 +301,7 @@ private fun handleNavigation(
         }
 
         else -> {
-            navController.navigate(destination) {
-                launchSingleTop = true
-            }
+            navController.navigate(destination) { launchSingleTop = true }
         }
     }
 }
@@ -341,9 +311,7 @@ private fun navigateToTopLevel(
     route: String
 ) {
     navController.navigate(route) {
-        popUpTo(navController.graph.findStartDestination().id) {
-            saveState = true
-        }
+        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
@@ -351,17 +319,23 @@ private fun navigateToTopLevel(
 
 private fun NavDestination?.normalizedRoute(): String? {
     val route = this?.route ?: return null
-
     return when {
-        route == GiftHubDestinations.PRODUCTS_BY_CATEGORY ||
-                route.startsWith("products_by_category/") -> GiftHubDestinations.PRODUCTS
-
-        route == GiftHubDestinations.PRODUCT_DETAILS ||
-                route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
-
-        route == GiftHubDestinations.EDIT_PRODUCT ||
-                route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
-
+        route == GiftHubDestinations.PRODUCTS_BY_CATEGORY || route.startsWith("products_by_category/") -> GiftHubDestinations.PRODUCTS
+        route == GiftHubDestinations.PRODUCT_DETAILS || route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
+        route == GiftHubDestinations.EDIT_PRODUCT || route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
+        route == GiftHubDestinations.PRODUCT_CUSTOMIZATION || route.startsWith("product_customization/") -> GiftHubDestinations.PRODUCTS
         else -> route
+    }
+}
+
+class ProductCustomizationViewModelFactory(
+    private val repository: com.example.gifthub.repositories.ProductCustomizationRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ProductCustomizationViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ProductCustomizationViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

@@ -1,28 +1,28 @@
 package com.example.gifthub.navigation
 
-import android.net.Uri
-
 object GiftHubDestinations {
     const val LOGIN = "login"
     const val REGISTER = "register"
-
     const val HOME = "home"
     const val PRODUCTS = "products"
+    const val PRODUCTS_BY_CATEGORY = "products_by_category/{categoryId}/{categoryName}"
+    const val ADD_PRODUCT = "add_product"
+    const val PRODUCT_DETAILS = "product_details/{productId}"
+    const val EDIT_PRODUCT = "edit_product/{productId}"
+    const val MANAGE_CATEGORIES = "manage_categories"
     const val CART = "cart"
+    const val CHECKOUT = "checkout"
+    const val ORDER_HISTORY = "order_history"
     const val FAVORITES = "favorites"
     const val PROFILE = "profile"
     const val NOTIFICATIONS = "notifications"
-    const val CHECKOUT = "checkout"
-
-    const val ORDER_HISTORY = "order_history"
     const val MANAGE_ADDRESS = "manage_address"
     const val SAVED_PAYMENTS = "saved_payments"
-    const val ADD_PRODUCT = "add_product"
-    const val MANAGE_CATEGORIES = "manage_categories"
+    const val PRODUCT_CUSTOMIZATION = "product_customization/{productId}"
 
-    const val PRODUCT_DETAILS = "product_details/{productId}"
-    const val EDIT_PRODUCT = "edit_product/{productId}"
-    const val PRODUCTS_BY_CATEGORY = "products_by_category/{categoryId}/{categoryName}"
+    fun productsByCategory(categoryId: String, categoryName: String): String {
+        return "products_by_category/$categoryId/$categoryName"
+    }
 
     fun productDetails(productId: String): String {
         return "product_details/$productId"
@@ -32,7 +32,7 @@ object GiftHubDestinations {
         return "edit_product/$productId"
     }
 
-    fun productsByCategory(categoryId: String, categoryName: String): String {
-        return "products_by_category/$categoryId/${Uri.encode(categoryName)}"
+    fun productCustomization(productId: String): String {
+        return "product_customization/$productId"
     }
 }
