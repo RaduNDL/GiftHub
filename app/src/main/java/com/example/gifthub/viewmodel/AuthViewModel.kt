@@ -55,8 +55,14 @@ class AuthViewModel : ViewModel() {
             errorMessage = "All fields are required."
             return
         }
-        if (password.length < 6) {
-            errorMessage = "Password must have at least 6 characters."
+
+        if (!isValidEmail(email)) {
+            errorMessage = "Please enter a valid email address."
+            return
+        }
+
+        if (!isValidPassword(password)) {
+            errorMessage = "Password must be at least 8 characters with uppercase, lowercase, number and special character"
             return
         }
 
@@ -109,6 +115,11 @@ class AuthViewModel : ViewModel() {
             return
         }
 
+        if (!isValidEmail(email)) {
+            errorMessage = "Please enter a valid email address."
+            return
+        }
+
         isLoading = true
         errorMessage = null
 
@@ -144,9 +155,14 @@ class AuthViewModel : ViewModel() {
         )
     }
 
-    fun sendPasswordReset(email: String) {
+    fun sendPasswordReset(email: String, onComplete: () -> Unit = {}) {
         if (email.isBlank()) {
             errorMessage = "Email is required."
+            return
+        }
+
+        if (!isValidEmail(email)) {
+            errorMessage = "Please enter a valid email address."
             return
         }
 
@@ -158,11 +174,13 @@ class AuthViewModel : ViewModel() {
             email = email.trim(),
             onSuccess = {
                 isLoading = false
-                infoMessage = "Reset email sent."
+                infoMessage = "Password reset email sent! Check your inbox."
+                onComplete()
             },
             onError = { error ->
                 isLoading = false
                 errorMessage = error
+                onComplete()
             }
         )
     }
@@ -189,5 +207,17 @@ class AuthViewModel : ViewModel() {
                     .document(userId)
                     .set(mapOf("fcmToken" to token), SetOptions.merge())
             }
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return email.matches(Regex("^[A-Za-z0-9+_.-]+@(.+)$"))
+    }
+
+    private fun isValidPassword(password: String): Boolean {
+        return password.length >= 8 &&
+                password.any { it.isUpperCase() } &&
+                password.any { it.isLowerCase() } &&
+                password.any { it.isDigit() } &&
+                password.any { it in "!@#$%^&*" }
     }
 }
