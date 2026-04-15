@@ -3,8 +3,12 @@ package com.example.gifthub.screens.products
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.gifthub.viewmodel.CartViewModel
@@ -30,14 +34,42 @@ fun ProductCustomizationScreen(
         }
     }
 
+    // ✅ ERROR STATE - Show error dialog instead of crashing
+    if (state.error != null && state.product == null) {
+        AlertDialog(
+            onDismissRequest = onBack,
+            title = { Text("Error Loading Product", style = MaterialTheme.typography.titleLarge) },
+            text = { Text(state.error ?: "Unknown error occurred") },
+            confirmButton = {
+                Button(onClick = onBack) {
+                    Text("Go Back")
+                }
+            }
+        )
+        return
+    }
+
     if (state.loading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
 
-    val product = state.product ?: return
+    val product = state.product
+    if (product == null) {
+        // ✅ Fallback UI if product is null (should rarely happen now)
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Product not found", style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onBack) {
+                    Text("Go Back")
+                }
+            }
+        }
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -45,13 +77,22 @@ fun ProductCustomizationScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TextButton(onClick = onBack) {
-            Text("Back")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+            Text("Customize Product", style = MaterialTheme.typography.headlineMedium)
         }
 
         Text(product.name, style = MaterialTheme.typography.headlineMedium)
         Text(product.description)
-        Text("Base Price: ${product.price}")
+        Text("Base Price: $${String.format("%.2f", product.price)}")
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -84,7 +125,7 @@ fun ProductCustomizationScreen(
                                 Column(modifier = Modifier.padding(start = 8.dp)) {
                                     Text(value.label)
                                     if (value.extraPrice > 0) {
-                                        Text("+${value.extraPrice} lei", style = MaterialTheme.typography.bodySmall)
+                                        Text("+${String.format("%.2f", value.extraPrice)} lei", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }
@@ -94,21 +135,51 @@ fun ProductCustomizationScreen(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { viewModel.setQuantity(state.quantity - 1) }) { Text("-") }
             Text("Quantity: ${state.quantity}")
             TextButton(onClick = { viewModel.setQuantity(state.quantity + 1) }) { Text("+") }
         }
 
-        Text("Total: ${state.totalPrice}", style = MaterialTheme.typography.headlineSmall)
+        Text("Total: $${String.format("%.2f", state.totalPrice)}", style = MaterialTheme.typography.headlineSmall)
 
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            onClick = { viewModel.addToCartWithCartViewModel(cartViewModel) }
-        ) {
-            Text("Add to Cart")
+        // ✅ Show loading or error state for add to cart button
+        if (state.error != null && state.product != null) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+            ) {
+                Text(
+                    state.error ?: "Unknown error",
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
 
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        Button(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            onClick = { viewModel.addToCartWithCartViewModel(cartViewModel) },
+            enabled = !cartViewModel.isLoading && state.error == null,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (cartViewModel.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Adding...")
+            } else {
+                Text("Add to Cart")
+            }
+        }
     }
 }

@@ -77,11 +77,23 @@ class CartViewModel : ViewModel() {
         )
     }
 
-    fun addCustomizedToCart(product: ProductDto, quantity: Int, customText: String, customColor: String) {
+    // ✅ COMPLETE IMPLEMENTATION - was incomplete before
+    fun addCustomizedToCart(
+        product: ProductDto,
+        quantity: Int,
+        customText: String,
+        customColor: String
+    ) {
         if (quantity <= 0) {
             userMessage = "Invalid quantity"
             return
         }
+
+        if (product.idProduct.isBlank()) {
+            userMessage = "Invalid product"
+            return
+        }
+
         isLoading = true
         repository.addCustomizedToCart(
             product = product,
@@ -89,26 +101,32 @@ class CartViewModel : ViewModel() {
             customText = customText,
             customColor = customColor,
             onSuccess = {
+                // ✅ Reload cart after successful add
                 repository.getCart(
                     onSuccess = { loadedCart ->
                         cart = loadedCart
-                        userMessage = "Personalized product added to cart"
+                        userMessage = "Personalized product added to cart ✓"
                         isLoading = false
                     },
                     onError = { error ->
-                        userMessage = error
+                        userMessage = "Added to cart but failed to refresh: $error"
                         isLoading = false
                     }
                 )
             },
             onError = { error ->
-                userMessage = error
+                userMessage = "Error adding to cart: $error"
                 isLoading = false
             }
         )
     }
 
     fun updateQuantity(productId: String, newQuantity: Int) {
+        if (productId.isBlank()) {
+            userMessage = "Invalid product ID"
+            return
+        }
+
         isLoading = true
         repository.updateItemQuantity(
             productId = productId,
@@ -133,6 +151,11 @@ class CartViewModel : ViewModel() {
     }
 
     fun removeFromCart(productId: String) {
+        if (productId.isBlank()) {
+            userMessage = "Invalid product ID"
+            return
+        }
+
         isLoading = true
         repository.removeFromCart(
             productId = productId,
@@ -162,7 +185,7 @@ class CartViewModel : ViewModel() {
             onSuccess = {
                 cart = ShoppingCartDto(
                     cartId = "current",
-                    userId = "",
+                    userId = cart.userId,
                     items = emptyList(),
                     temporaryValue = 0.0
                 )

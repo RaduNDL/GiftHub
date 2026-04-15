@@ -18,14 +18,36 @@ class ProductCustomizationViewModel(
     val uiState: StateFlow<ProductCustomizationUiState> = _uiState.asStateFlow()
 
     fun loadProduct(productId: String) {
+        // ✅ Clear previous state
+        _uiState.value = ProductCustomizationUiState()
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(loading = true, error = null)
             try {
+                if (productId.isBlank()) {
+                    _uiState.value = _uiState.value.copy(
+                        loading = false,
+                        error = "Invalid product ID"
+                    )
+                    return@launch
+                }
+
                 val product = repository.getProduct(productId)
+
+                // ✅ Validate product loaded successfully
+                if (product.idProduct.isBlank()) {
+                    _uiState.value = _uiState.value.copy(
+                        loading = false,
+                        error = "Product not found"
+                    )
+                    return@launch
+                }
+
                 _uiState.value = _uiState.value.copy(
                     loading = false,
                     product = product,
-                    totalPrice = product.price
+                    totalPrice = product.price,
+                    error = null
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -37,16 +59,21 @@ class ProductCustomizationViewModel(
     }
 
     fun setProduct(product: ProductDto) {
+        if (product.idProduct.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Invalid product")
+            return
+        }
         _uiState.value = _uiState.value.copy(
             product = product,
-            totalPrice = product.price
+            totalPrice = product.price,
+            error = null
         )
     }
 
     fun onToggleValue(optionId: String, valueId: String, multiSelect: Boolean) {
         val current = _uiState.value
         val currentSet = current.selectedByOption[optionId] ?: emptySet()
-        
+
         val newSet = if (multiSelect) {
             if (currentSet.contains(valueId)) currentSet - valueId else currentSet + valueId
         } else {
@@ -55,13 +82,14 @@ class ProductCustomizationViewModel(
 
         val newMap = current.selectedByOption.toMutableMap()
         if (newSet.isEmpty()) newMap.remove(optionId) else newMap[optionId] = newSet
-        
+
         _uiState.value = current.copy(selectedByOption = newMap, error = null)
         recalculateTotal()
     }
 
     fun setQuantity(quantity: Int) {
-        _uiState.value = _uiState.value.copy(quantity = quantity.coerceAtLeast(1))
+        val safeQuantity = quantity.coerceAtLeast(1).coerceAtMost(999)
+        _uiState.value = _uiState.value.copy(quantity = safeQuantity)
         recalculateTotal()
     }
 
@@ -75,44 +103,76 @@ class ProductCustomizationViewModel(
         )
     }
 
+    // ✅ IMPROVED - Better error handling and null safety
     fun addToCartWithCartViewModel(cartViewModel: CartViewModel) {
         val current = _uiState.value
-        val product = current.product ?: return
-        
-        val missingRequired = product.customizationOptions.filter { 
-            it.required && !current.selectedByOption.containsKey(it.id) 
-        }
-        
-        if (missingRequired.isNotEmpty()) {
-            _uiState.value = current.copy(error = "Please select: ${missingRequired.joinToString { it.name }}")
+        val product = current.product
+
+        // ✅ Null safety checks
+        if (product == null || product.idProduct.isBlank()) {
+            _uiState.value = current.copy(error = "Product data is invalid")
             return
         }
 
-        val selections = buildSelections(product, current.selectedByOption)
-        val customText = selections.joinToString("; ") { sel ->
-            "${sel.optionName}: ${sel.selectedLabels.joinToString(", ")}"
+        if (current.quantity <= 0) {
+            _uiState.value = current.copy(error = "Invalid quantity")
+            return
         }
 
-        val customColor = product.customizationOptions
-            .flatMap { it.values }
-            .find { v -> selections.any { s -> s.selectedValueIds.contains(v.id) } && !v.colorHex.isNullOrEmpty() }
-            ?.colorHex ?: ""
+        // ✅ Check for required customizations
+        val missingRequired = product.customizationOptions.filter {
+            it.required && !current.selectedByOption.containsKey(it.id)
+        }
 
-        cartViewModel.addCustomizedToCart(
-            product = product,
-            quantity = current.quantity,
-            customText = customText,
-            customColor = customColor
-        )
-        
-        _uiState.value = current.copy(successAdded = true)
+        if (missingRequired.isNotEmpty()) {
+            val missingNames = missingRequired.joinToString(", ") { it.name }
+            _uiState.value = current.copy(error = "Please select: $missingNames")
+            return
+        }
+
+        try {
+            val selections = buildSelections(product, current.selectedByOption)
+
+            val customText = if (selections.isNotEmpty()) {
+                selections.joinToString("; ") { sel ->
+                    "${sel.optionName}: ${sel.selectedLabels.joinToString(", ")}"
+                }
+            } else {
+                ""
+            }
+
+            val customColor = product.customizationOptions
+                .flatMap { it.values }
+                .find { v ->
+                    selections.any { s -> s.selectedValueIds.contains(v.id) } &&
+                            !v.colorHex.isNullOrEmpty()
+                }
+                ?.colorHex ?: ""
+
+            // ✅ Add to cart with error handling
+            cartViewModel.addCustomizedToCart(
+                product = product,
+                quantity = current.quantity,
+                customText = customText,
+                customColor = customColor
+            )
+
+            _uiState.value = current.copy(successAdded = true, error = null)
+        } catch (e: Exception) {
+            _uiState.value = current.copy(error = "Error preparing customization: ${e.message}")
+        }
     }
 
-    private fun buildSelections(product: ProductDto, selectedByOption: Map<String, Set<String>>): List<SelectedCustomization> {
+    private fun buildSelections(
+        product: ProductDto,
+        selectedByOption: Map<String, Set<String>>
+    ): List<SelectedCustomization> {
         return product.customizationOptions.mapNotNull { option ->
             val selectedIds = selectedByOption[option.id] ?: return@mapNotNull null
             val values = option.values.filter { it.id in selectedIds }
-            
+
+            if (values.isEmpty()) return@mapNotNull null
+
             SelectedCustomization(
                 optionId = option.id,
                 optionName = option.name,
