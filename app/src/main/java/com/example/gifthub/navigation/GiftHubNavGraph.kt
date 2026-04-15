@@ -130,6 +130,7 @@ fun GiftHubNavGraph() {
             val categoryName = Uri.decode(encodedCategoryName)
 
             ProductsScreen(
+                // Treat as PRODUCTS route so bottom bar highlights Products tab
                 currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
@@ -152,8 +153,14 @@ fun GiftHubNavGraph() {
 
             ProductDetailsScreen(
                 productId = productId,
+                // Back arrow navigates back in stack; bottom bar uses handleNavigation
                 onNavigate = { destination ->
-                    handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
+                    if (destination == GiftHubDestinations.PRODUCTS) {
+                        // Back arrow: pop back to wherever we came from
+                        navController.popBackStack()
+                    } else {
+                        handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
+                    }
                 },
                 productViewModel = productViewModel
             )
@@ -231,6 +238,7 @@ fun GiftHubNavGraph() {
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+            // TODO: implement OrderDetailsScreen - for now go back
             navController.popBackStack()
         }
 
@@ -321,11 +329,21 @@ private fun navigateToTopLevel(
 private fun NavDestination?.normalizedRoute(): String? {
     val route = this?.route ?: return null
     return when {
-        route == GiftHubDestinations.PRODUCTS_BY_CATEGORY || route.startsWith("products_by_category/") -> GiftHubDestinations.PRODUCTS
-        route == GiftHubDestinations.PRODUCT_DETAILS || route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
-        route == GiftHubDestinations.EDIT_PRODUCT || route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
-        route == GiftHubDestinations.PRODUCT_CUSTOMIZATION || route.startsWith("product_customization/") -> GiftHubDestinations.PRODUCTS
-        route == GiftHubDestinations.ORDER_DETAILS || route.startsWith("order_details/") -> GiftHubDestinations.ORDER_HISTORY
+        route == GiftHubDestinations.PRODUCTS_BY_CATEGORY ||
+                route.startsWith("products_by_category/") -> GiftHubDestinations.PRODUCTS
+
+        route == GiftHubDestinations.PRODUCT_DETAILS ||
+                route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
+
+        route == GiftHubDestinations.EDIT_PRODUCT ||
+                route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
+
+        route == GiftHubDestinations.PRODUCT_CUSTOMIZATION ||
+                route.startsWith("product_customization/") -> GiftHubDestinations.PRODUCTS
+
+        route == GiftHubDestinations.ORDER_DETAILS ||
+                route.startsWith("order_details/") -> GiftHubDestinations.ORDER_HISTORY
+
         else -> route
     }
 }
