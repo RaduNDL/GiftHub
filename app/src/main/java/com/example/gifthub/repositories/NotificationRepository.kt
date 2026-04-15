@@ -1,7 +1,5 @@
 package com.example.gifthub.repositories
 
-import android.content.Context
-import android.util.Log
 import com.example.gifthub.models.NotificationDto
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,7 +18,7 @@ class NotificationRepository {
             .collection("notifications")
 
     fun createOrderNotification(
-        userId: String,
+        userId: String = currentUserId().orEmpty(),
         title: String,
         message: String,
         orderId: String = "",
@@ -29,25 +27,28 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        val docRef = notificationsCollection(userId).document()
-        val notificationId = docRef.id
+        if (userId.isBlank()) {
+            onError("User not authenticated"); return
+        }
+        if (title.isBlank() || message.isBlank()) {
+            onError("Notification title and message are required"); return
+        }
 
-        val payload = hashMapOf(
-            "notificationID" to notificationId,
-            "userId" to userId,
-            "title" to title,
-            "message" to message,
-            "createdDate" to System.currentTimeMillis(),
-            "markedAsRead" to false,
-            "type" to type,
-            "targetRoute" to targetRoute,
-            "orderId" to orderId
+        val docRef = notificationsCollection(userId).document()
+        val payload = NotificationDto(
+            notificationID = docRef.id,
+            userId = userId,
+            title = title.trim(),
+            message = message.trim(),
+            createdDate = System.currentTimeMillis(),
+            markedAsRead = false,
+            type = type,
+            targetRoute = targetRoute,
+            orderId = orderId
         )
 
         docRef.set(payload)
-            .addOnSuccessListener {
-                onSuccess()
-            }
+            .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 onError(e.message ?: "Failed to create notification")
             }
@@ -78,13 +79,12 @@ class NotificationRepository {
                 }
                 onSuccess(notifications)
             }
-            .addOnFailureListener {
-                onError(it.message ?: "Failed to load notifications")
-            }
+            .addOnFailureListener { onError(it.message ?: "Failed to load notifications") }
     }
 
     fun markAsRead(notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val uid = currentUserId() ?: return onError("User not authenticated")
+        if (notificationId.isBlank()) return onError("Invalid notification ID")
 
         notificationsCollection(uid)
             .document(notificationId)
@@ -95,6 +95,7 @@ class NotificationRepository {
 
     fun deleteNotification(notificationId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val uid = currentUserId() ?: return onError("User not authenticated")
+        if (notificationId.isBlank()) return onError("Invalid notification ID")
 
         notificationsCollection(uid)
             .document(notificationId)

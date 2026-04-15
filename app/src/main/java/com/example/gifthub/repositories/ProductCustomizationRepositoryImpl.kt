@@ -11,8 +11,9 @@ class ProductCustomizationRepositoryImpl(
 ) : ProductCustomizationRepository {
 
     override suspend fun getProduct(productId: String): ProductDto {
+        if (productId.isBlank()) return ProductDto()
         val snapshot = firestore.collection("products").document(productId).get().await()
-        val dto = snapshot.toObject(ProductDto::class.java) ?: ProductDto()
+        val dto = snapshot.toObject(ProductDto::class.java) ?: return ProductDto()
         return dto.copy(idProduct = if (dto.idProduct.isBlank()) snapshot.id else dto.idProduct)
     }
 
@@ -22,62 +23,64 @@ class ProductCustomizationRepositoryImpl(
         quantity: Int,
         selections: List<SelectedCustomization>
     ): Result<Unit> {
+        if (userId.isBlank()) return Result.failure(IllegalArgumentException("Missing user"))
+        if (product.idProduct.isBlank()) return Result.failure(IllegalArgumentException("Missing product"))
+
         val validation = validateSelections(product, selections)
         if (validation.isFailure) return validation
 
         val safeQuantity = quantity.coerceAtLeast(1)
-        val extra = computeCustomizationExtra(selections)
+        val extraPerUnit = computeCustomizationExtra(selections)
         val hash = buildCustomizationHash(selections)
-        val lineTotal = (product.price + extra) * safeQuantity
+        val docId = if (selections.isEmpty()) product.idProduct else "${product.idProduct}_$hash"
 
-        val cartItemsRef = firestore.collection("users")
+        val itemRef = firestore.collection("users")
             .document(userId)
             .collection("shoppingCart")
-            .document("active")
+            .document("current")
             .collection("items")
+            .document(docId)
 
-        val existing = cartItemsRef
-            .whereEqualTo("productId", product.idProduct)
-            .whereEqualTo("customizationsHash", hash)
-            .limit(1)
-            .get()
-            .await()
+        return try {
+            val existing = itemRef.get().await()
+            val now = System.currentTimeMillis()
 
-        if (!existing.isEmpty) {
-            val doc = existing.documents.first()
-            val oldQty = (doc.getLong("quantity") ?: 1L).toInt()
-            val newQty = oldQty + safeQuantity
-            val newTotal = (product.price + extra) * newQty
+            if (existing.exists()) {
+                val oldQty = (existing.getLong("quantity") ?: 0L).toInt()
+                val newQty = oldQty + safeQuantity
+                val newTotal = (product.price + extraPerUnit) * newQty
 
-            doc.reference.update(
-                mapOf(
-                    "quantity" to newQty,
-                    "lineExtraPrice" to extra,
-                    "lineTotalPrice" to newTotal,
-                    "updatedAt" to System.currentTimeMillis()
+                itemRef.update(
+                    mapOf(
+                        "quantity" to newQty,
+                        "lineExtraPrice" to extraPerUnit,
+                        "lineTotalPrice" to newTotal,
+                        "updatedAt" to now
+                    )
+                ).await()
+            } else {
+                val item = CartItem(
+                    id = docId,
+                    userId = userId,
+                    productId = product.idProduct,
+                    productName = if (selections.isEmpty()) product.name else "${product.name} (Customized)",
+                    productImage = product.imageUrl,
+                    basePrice = product.price,
+                    quantity = safeQuantity,
+                    selectedCustomizations = selections,
+                    customizationsHash = hash,
+                    lineExtraPrice = extraPerUnit,
+                    lineTotalPrice = (product.price + extraPerUnit) * safeQuantity,
+                    createdAt = now,
+                    updatedAt = now
                 )
-            ).await()
-        } else {
-            val doc = cartItemsRef.document()
-            val item = CartItem(
-                id = doc.id,
-                userId = userId,
-                productId = product.idProduct,
-                productName = product.name,
-                productImage = product.imageUrl,
-                basePrice = product.price,
-                quantity = safeQuantity,
-                selectedCustomizations = selections,
-                customizationsHash = hash,
-                lineExtraPrice = extra,
-                lineTotalPrice = lineTotal,
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            doc.set(item).await()
-        }
+                itemRef.set(item).await()
+            }
 
-        return Result.success(Unit)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     override fun computeCustomizationExtra(selections: List<SelectedCustomization>): Double {
@@ -85,6 +88,7 @@ class ProductCustomizationRepositoryImpl(
     }
 
     override fun buildCustomizationHash(selections: List<SelectedCustomization>): String {
+        if (selections.isEmpty()) return ""
         return selections
             .sortedBy { it.optionId }
             .joinToString("|") { s ->
@@ -92,7 +96,10 @@ class ProductCustomizationRepositoryImpl(
             }
     }
 
-    override fun validateSelections(product: ProductDto, selections: List<SelectedCustomization>): Result<Unit> {
+    override fun validateSelections(
+        product: ProductDto,
+        selections: List<SelectedCustomization>
+    ): Result<Unit> {
         val byOption = selections.associateBy { it.optionId }
 
         for (option in product.customizationOptions) {
@@ -102,20 +109,17 @@ class ProductCustomizationRepositoryImpl(
             if (option.required && count == 0) {
                 return Result.failure(IllegalArgumentException("Missing required option: ${option.name}"))
             }
-
             if (count < option.minSelection || count > option.maxSelection) {
                 return Result.failure(IllegalArgumentException("Invalid selection count for option: ${option.name}"))
             }
-
             if (count > 0) {
                 val allowed = option.values.map { it.id }.toSet()
-                val selectedIds = selected?.selectedValueIds ?: emptyList()
+                val selectedIds = selected?.selectedValueIds.orEmpty()
                 if (!selectedIds.all { it in allowed }) {
                     return Result.failure(IllegalArgumentException("Invalid selected values for option: ${option.name}"))
                 }
             }
         }
-
         return Result.success(Unit)
     }
 }

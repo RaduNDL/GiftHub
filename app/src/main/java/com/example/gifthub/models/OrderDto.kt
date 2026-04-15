@@ -6,9 +6,11 @@ data class OrderDto(
     val orderId: String = "",
     val userId: String = "",
     val items: List<CartItemDto> = emptyList(),
+    val subtotal: Double = 0.0,
     val totalAmount: Double = 0.0,
     val address: String = "",
     val paymentMethod: String = "",
     val status: String = "Pending",
-    val createdAt: Timestamp? = null
+    val createdAt: Timestamp? = null,
+    val updatedAt: Timestamp? = null
 )

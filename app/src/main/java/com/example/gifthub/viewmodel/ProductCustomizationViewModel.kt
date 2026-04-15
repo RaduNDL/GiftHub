@@ -18,28 +18,18 @@ class ProductCustomizationViewModel(
     val uiState: StateFlow<ProductCustomizationUiState> = _uiState.asStateFlow()
 
     fun loadProduct(productId: String) {
-        // ✅ Clear previous state
-        _uiState.value = ProductCustomizationUiState()
+        _uiState.value = ProductCustomizationUiState(loading = true)
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(loading = true, error = null)
             try {
                 if (productId.isBlank()) {
-                    _uiState.value = _uiState.value.copy(
-                        loading = false,
-                        error = "Invalid product ID"
-                    )
+                    _uiState.value = _uiState.value.copy(loading = false, error = "Invalid product ID")
                     return@launch
                 }
 
                 val product = repository.getProduct(productId)
-
-                // ✅ Validate product loaded successfully
                 if (product.idProduct.isBlank()) {
-                    _uiState.value = _uiState.value.copy(
-                        loading = false,
-                        error = "Product not found"
-                    )
+                    _uiState.value = _uiState.value.copy(loading = false, error = "Product not found")
                     return@launch
                 }
 
@@ -103,58 +93,35 @@ class ProductCustomizationViewModel(
         )
     }
 
-    // ✅ IMPROVED - Better error handling and null safety
     fun addToCartWithCartViewModel(cartViewModel: CartViewModel) {
         val current = _uiState.value
         val product = current.product
 
-        // ✅ Null safety checks
         if (product == null || product.idProduct.isBlank()) {
             _uiState.value = current.copy(error = "Product data is invalid")
             return
         }
-
         if (current.quantity <= 0) {
             _uiState.value = current.copy(error = "Invalid quantity")
             return
         }
 
-        // ✅ Check for required customizations
         val missingRequired = product.customizationOptions.filter {
-            it.required && !current.selectedByOption.containsKey(it.id)
+            it.required && current.selectedByOption[it.id].isNullOrEmpty()
         }
-
         if (missingRequired.isNotEmpty()) {
-            val missingNames = missingRequired.joinToString(", ") { it.name }
-            _uiState.value = current.copy(error = "Please select: $missingNames")
+            val names = missingRequired.joinToString(", ") { it.name }
+            _uiState.value = current.copy(error = "Please select: $names")
             return
         }
 
         try {
             val selections = buildSelections(product, current.selectedByOption)
 
-            val customText = if (selections.isNotEmpty()) {
-                selections.joinToString("; ") { sel ->
-                    "${sel.optionName}: ${sel.selectedLabels.joinToString(", ")}"
-                }
-            } else {
-                ""
-            }
-
-            val customColor = product.customizationOptions
-                .flatMap { it.values }
-                .find { v ->
-                    selections.any { s -> s.selectedValueIds.contains(v.id) } &&
-                            !v.colorHex.isNullOrEmpty()
-                }
-                ?.colorHex ?: ""
-
-            // ✅ Add to cart with error handling
             cartViewModel.addCustomizedToCart(
                 product = product,
                 quantity = current.quantity,
-                customText = customText,
-                customColor = customColor
+                selections = selections
             )
 
             _uiState.value = current.copy(successAdded = true, error = null)
@@ -170,7 +137,6 @@ class ProductCustomizationViewModel(
         return product.customizationOptions.mapNotNull { option ->
             val selectedIds = selectedByOption[option.id] ?: return@mapNotNull null
             val values = option.values.filter { it.id in selectedIds }
-
             if (values.isEmpty()) return@mapNotNull null
 
             SelectedCustomization(

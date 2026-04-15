@@ -117,17 +117,17 @@ fun CartScreen(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        items(cart.items, key = { it.productId }) { item ->
+                        items(cart.items, key = { it.cartItemId }) { item ->
                             CartItemCard(
                                 item = item,
                                 onIncrease = {
-                                    viewModel.updateQuantity(item.productId, item.quantity + 1)
+                                    viewModel.updateQuantity(item.cartItemId, item.quantity + 1)
                                 },
                                 onDecrease = {
-                                    viewModel.updateQuantity(item.productId, item.quantity - 1)
+                                    viewModel.updateQuantity(item.cartItemId, item.quantity - 1)
                                 },
                                 onRemove = {
-                                    viewModel.removeFromCart(item.productId)
+                                    viewModel.removeFromCart(item.cartItemId)
                                 }
                             )
                         }
@@ -218,27 +218,36 @@ fun CartItemCard(
 
                 if (item.customText.isNotEmpty()) {
                     Text(
-                        text = "Engraving: ${item.customText}",
+                        text = item.customText,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                if (item.customColor.isNotEmpty() && item.customColor != "Default") {
+                if (item.lineExtraPrice > 0.0) {
                     Text(
-                        text = "Color: ${item.customColor}",
+                        text = "+ $${String.format(Locale.US, "%.2f", item.lineExtraPrice)} customization",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "$${String.format(Locale.US, "%.2f", item.price)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "$${String.format(Locale.US, "%.2f", item.lineTotalPrice)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
                 )
+
+                if (item.quantity > 1) {
+                    Text(
+                        text = "$${String.format(Locale.US, "%.2f", item.price + item.lineExtraPrice)} each",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 

@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.gifthub.models.ProductDto
+import com.example.gifthub.models.SelectedCustomization
 import com.example.gifthub.models.ShoppingCartDto
 import com.example.gifthub.repositories.CartRepository
 
@@ -12,14 +13,7 @@ class CartViewModel : ViewModel() {
 
     private val repository = CartRepository()
 
-    var cart by mutableStateOf(
-        ShoppingCartDto(
-            cartId = "current",
-            userId = "",
-            items = emptyList(),
-            temporaryValue = 0.0
-        )
-    )
+    var cart by mutableStateOf(emptyCart())
         private set
 
     var isLoading by mutableStateOf(false)
@@ -31,18 +25,13 @@ class CartViewModel : ViewModel() {
     fun loadCart() {
         isLoading = true
         repository.getCart(
-            onSuccess = { loadedCart ->
-                cart = loadedCart
+            onSuccess = {
+                cart = it
                 isLoading = false
             },
             onError = { error ->
                 userMessage = error
-                cart = ShoppingCartDto(
-                    cartId = "current",
-                    userId = "",
-                    items = emptyList(),
-                    temporaryValue = 0.0
-                )
+                cart = emptyCart()
                 isLoading = false
             }
         )
@@ -50,25 +39,18 @@ class CartViewModel : ViewModel() {
 
     fun addToCart(product: ProductDto, quantity: Int = 1) {
         if (quantity <= 0) {
-            userMessage = "Invalid quantity"
-            return
+            userMessage = "Invalid quantity"; return
         }
+        if (product.idProduct.isBlank()) {
+            userMessage = "Invalid product"; return
+        }
+
         isLoading = true
         repository.addToCart(
             product = product,
             quantityToAdd = quantity,
             onSuccess = {
-                repository.getCart(
-                    onSuccess = { loadedCart ->
-                        cart = loadedCart
-                        userMessage = "Product added to cart"
-                        isLoading = false
-                    },
-                    onError = { error ->
-                        userMessage = error
-                        isLoading = false
-                    }
-                )
+                refreshCart("Product added to cart")
             },
             onError = { error ->
                 userMessage = error
@@ -77,42 +59,25 @@ class CartViewModel : ViewModel() {
         )
     }
 
-    // ✅ COMPLETE IMPLEMENTATION - was incomplete before
     fun addCustomizedToCart(
         product: ProductDto,
         quantity: Int,
-        customText: String,
-        customColor: String
+        selections: List<SelectedCustomization>
     ) {
         if (quantity <= 0) {
-            userMessage = "Invalid quantity"
-            return
+            userMessage = "Invalid quantity"; return
         }
-
         if (product.idProduct.isBlank()) {
-            userMessage = "Invalid product"
-            return
+            userMessage = "Invalid product"; return
         }
 
         isLoading = true
         repository.addCustomizedToCart(
             product = product,
             quantityToAdd = quantity,
-            customText = customText,
-            customColor = customColor,
+            selections = selections,
             onSuccess = {
-                // ✅ Reload cart after successful add
-                repository.getCart(
-                    onSuccess = { loadedCart ->
-                        cart = loadedCart
-                        userMessage = "Personalized product added to cart ✓"
-                        isLoading = false
-                    },
-                    onError = { error ->
-                        userMessage = "Added to cart but failed to refresh: $error"
-                        isLoading = false
-                    }
-                )
+                refreshCart("Personalized product added to cart")
             },
             onError = { error ->
                 userMessage = "Error adding to cart: $error"
@@ -121,28 +86,16 @@ class CartViewModel : ViewModel() {
         )
     }
 
-    fun updateQuantity(productId: String, newQuantity: Int) {
-        if (productId.isBlank()) {
-            userMessage = "Invalid product ID"
-            return
+    fun updateQuantity(cartItemId: String, newQuantity: Int) {
+        if (cartItemId.isBlank()) {
+            userMessage = "Invalid cart item ID"; return
         }
 
         isLoading = true
         repository.updateItemQuantity(
-            productId = productId,
+            cartItemId = cartItemId,
             newQuantity = newQuantity,
-            onSuccess = {
-                repository.getCart(
-                    onSuccess = { loadedCart ->
-                        cart = loadedCart
-                        isLoading = false
-                    },
-                    onError = { error ->
-                        userMessage = error
-                        isLoading = false
-                    }
-                )
-            },
+            onSuccess = { refreshCart(null) },
             onError = { error ->
                 userMessage = error
                 isLoading = false
@@ -150,28 +103,15 @@ class CartViewModel : ViewModel() {
         )
     }
 
-    fun removeFromCart(productId: String) {
-        if (productId.isBlank()) {
-            userMessage = "Invalid product ID"
-            return
+    fun removeFromCart(cartItemId: String) {
+        if (cartItemId.isBlank()) {
+            userMessage = "Invalid cart item ID"; return
         }
 
         isLoading = true
         repository.removeFromCart(
-            productId = productId,
-            onSuccess = {
-                repository.getCart(
-                    onSuccess = { loadedCart ->
-                        cart = loadedCart
-                        userMessage = "Product removed from cart"
-                        isLoading = false
-                    },
-                    onError = { error ->
-                        userMessage = error
-                        isLoading = false
-                    }
-                )
-            },
+            cartItemId = cartItemId,
+            onSuccess = { refreshCart("Product removed from cart") },
             onError = { error ->
                 userMessage = error
                 isLoading = false
@@ -183,12 +123,7 @@ class CartViewModel : ViewModel() {
         isLoading = true
         repository.clearCart(
             onSuccess = {
-                cart = ShoppingCartDto(
-                    cartId = "current",
-                    userId = cart.userId,
-                    items = emptyList(),
-                    temporaryValue = 0.0
-                )
+                cart = emptyCart().copy(userId = cart.userId)
                 userMessage = "Cart cleared"
                 isLoading = false
             },
@@ -202,4 +137,25 @@ class CartViewModel : ViewModel() {
     fun clearUserMessage() {
         userMessage = null
     }
+
+    private fun refreshCart(successMessage: String?) {
+        repository.getCart(
+            onSuccess = {
+                cart = it
+                if (successMessage != null) userMessage = successMessage
+                isLoading = false
+            },
+            onError = { error ->
+                userMessage = error
+                isLoading = false
+            }
+        )
+    }
+
+    private fun emptyCart() = ShoppingCartDto(
+        cartId = "current",
+        userId = "",
+        items = emptyList(),
+        temporaryValue = 0.0
+    )
 }

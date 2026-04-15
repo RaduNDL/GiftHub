@@ -50,6 +50,12 @@ class ProductViewModel : ViewModel() {
     }
 
     fun loadProductById(productId: String) {
+        if (productId.isBlank()) {
+            selectedProduct = null
+            errorMessage = "Invalid product id"
+            return
+        }
+
         isLoading = true
         errorMessage = null
 
@@ -57,9 +63,11 @@ class ProductViewModel : ViewModel() {
             productId = productId,
             onSuccess = { product ->
                 selectedProduct = product
+                if (product == null) errorMessage = "Product not found"
                 isLoading = false
             },
             onError = { error ->
+                selectedProduct = null
                 errorMessage = error
                 isLoading = false
             }
@@ -84,19 +92,22 @@ class ProductViewModel : ViewModel() {
         }
 
         isLoading = true
+        errorMessage = null
+
+        val now = System.currentTimeMillis()
         val product = ProductDto(
             idProduct = "",
-            name = name,
-            description = description,
+            name = name.trim(),
+            description = description.trim(),
             price = price,
             stock = stock,
             categoryId = categoryIdStr,
-            imageUrl = imageUrl,
+            imageUrl = imageUrl.trim(),
             active = true,
             customizable = false,
             customizationOptions = emptyList(),
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
+            createdAt = now,
+            updatedAt = now
         )
 
         repository.addProduct(
@@ -126,24 +137,27 @@ class ProductViewModel : ViewModel() {
         val price = priceStr.toDoubleOrNull()
         val stock = stockStr.toIntOrNull()
 
-        if (name.isBlank() || price == null || stock == null || categoryIdStr.isBlank()) {
+        if (productId.isBlank() || name.isBlank() || price == null || stock == null || categoryIdStr.isBlank()) {
             errorMessage = "Please fill all fields correctly"
             return
         }
 
         isLoading = true
+        errorMessage = null
+
+        val createdAtValue = selectedProduct?.createdAt ?: System.currentTimeMillis()
         val product = ProductDto(
             idProduct = productId,
-            name = name,
-            description = description,
+            name = name.trim(),
+            description = description.trim(),
             price = price,
             stock = stock,
             categoryId = categoryIdStr,
-            imageUrl = imageUrl,
+            imageUrl = imageUrl.trim(),
             active = true,
-            customizable = false,
-            customizationOptions = emptyList(),
-            createdAt = System.currentTimeMillis(),
+            customizable = selectedProduct?.customizable ?: false,
+            customizationOptions = selectedProduct?.customizationOptions ?: emptyList(),
+            createdAt = createdAtValue,
             updatedAt = System.currentTimeMillis()
         )
 
@@ -162,7 +176,14 @@ class ProductViewModel : ViewModel() {
     }
 
     fun deleteProduct(productId: String) {
+        if (productId.isBlank()) {
+            errorMessage = "Invalid product id"
+            return
+        }
+
         isLoading = true
+        errorMessage = null
+
         repository.deleteProduct(
             productId = productId,
             onSuccess = {
@@ -174,5 +195,9 @@ class ProductViewModel : ViewModel() {
                 isLoading = false
             }
         )
+    }
+
+    fun clearSelectedProduct() {
+        selectedProduct = null
     }
 }

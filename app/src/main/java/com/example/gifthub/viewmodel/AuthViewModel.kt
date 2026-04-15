@@ -22,6 +22,9 @@ class AuthViewModel : ViewModel() {
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
+    var infoMessage by mutableStateOf<String?>(null)
+        private set
+
     var isAuthenticated by mutableStateOf(authRepository.getCurrentUser() != null)
         private set
 
@@ -33,25 +36,27 @@ class AuthViewModel : ViewModel() {
     }
 
     private fun checkUserRoleStatus() {
-        val user = authRepository.getCurrentUser()
-        if (user != null) {
-            userRepository.getUser(
-                userId = user.uid,
-                onSuccess = { userDto ->
-                    currentUserRole = userDto?.role ?: "customer"
-                    syncFcmToken(user.uid)
-                },
-                onError = {
-                    currentUserRole = "customer"
-                    syncFcmToken(user.uid)
-                }
-            )
-        }
+        val user = authRepository.getCurrentUser() ?: return
+        userRepository.getUser(
+            userId = user.uid,
+            onSuccess = { userDto ->
+                currentUserRole = userDto?.role ?: "customer"
+                syncFcmToken(user.uid)
+            },
+            onError = {
+                currentUserRole = "customer"
+                syncFcmToken(user.uid)
+            }
+        )
     }
 
     fun register(firstName: String, lastName: String, email: String, password: String) {
-        if (email.isBlank() || password.isBlank() || firstName.isBlank() || lastName.isBlank()) {
+        if (firstName.isBlank() || lastName.isBlank() || email.isBlank() || password.isBlank()) {
             errorMessage = "All fields are required."
+            return
+        }
+        if (password.length < 6) {
+            errorMessage = "Password must have at least 6 characters."
             return
         }
 
@@ -59,36 +64,37 @@ class AuthViewModel : ViewModel() {
         errorMessage = null
 
         authRepository.register(
-            email = email,
+            email = email.trim(),
             password = password,
             onSuccess = {
                 val firebaseUser = authRepository.getCurrentUser()
-                if (firebaseUser != null) {
-                    val newUser = UserDto(
-                        userId = firebaseUser.uid,
-                        email = email,
-                        firstName = firstName,
-                        lastName = lastName,
-                        role = "customer"
-                    )
-
-                    userRepository.createUser(
-                        user = newUser,
-                        onSuccess = {
-                            syncFcmToken(firebaseUser.uid)
-                            currentUserRole = "customer"
-                            isLoading = false
-                            isAuthenticated = true
-                        },
-                        onError = { error ->
-                            isLoading = false
-                            errorMessage = error
-                        }
-                    )
-                } else {
+                if (firebaseUser == null) {
                     isLoading = false
                     errorMessage = "Registration succeeded, but user session is missing."
+                    return@register
                 }
+
+                val newUser = UserDto(
+                    userId = firebaseUser.uid,
+                    email = email.trim(),
+                    firstName = firstName.trim(),
+                    lastName = lastName.trim(),
+                    role = "customer"
+                )
+
+                userRepository.createUser(
+                    user = newUser,
+                    onSuccess = {
+                        syncFcmToken(firebaseUser.uid)
+                        currentUserRole = "customer"
+                        isLoading = false
+                        isAuthenticated = true
+                    },
+                    onError = { error ->
+                        isLoading = false
+                        errorMessage = error
+                    }
+                )
             },
             onError = { error ->
                 isLoading = false
@@ -107,28 +113,29 @@ class AuthViewModel : ViewModel() {
         errorMessage = null
 
         authRepository.login(
-            email = email,
+            email = email.trim(),
             password = password,
             onSuccess = {
                 val firebaseUser = authRepository.getCurrentUser()
-                if (firebaseUser != null) {
-                    userRepository.getUser(
-                        userId = firebaseUser.uid,
-                        onSuccess = { userDto ->
-                            currentUserRole = userDto?.role ?: "customer"
-                            syncFcmToken(firebaseUser.uid)
-                            isLoading = false
-                            isAuthenticated = true
-                        },
-                        onError = { error ->
-                            isLoading = false
-                            errorMessage = error
-                        }
-                    )
-                } else {
+                if (firebaseUser == null) {
                     isLoading = false
                     errorMessage = "Login succeeded, but user session is missing."
+                    return@login
                 }
+
+                userRepository.getUser(
+                    userId = firebaseUser.uid,
+                    onSuccess = { userDto ->
+                        currentUserRole = userDto?.role ?: "customer"
+                        syncFcmToken(firebaseUser.uid)
+                        isLoading = false
+                        isAuthenticated = true
+                    },
+                    onError = { error ->
+                        isLoading = false
+                        errorMessage = error
+                    }
+                )
             },
             onError = { error ->
                 isLoading = false
@@ -145,12 +152,13 @@ class AuthViewModel : ViewModel() {
 
         isLoading = true
         errorMessage = null
+        infoMessage = null
 
         authRepository.sendPasswordReset(
-            email = email,
+            email = email.trim(),
             onSuccess = {
                 isLoading = false
-                errorMessage = "Reset email sent."
+                infoMessage = "Reset email sent."
             },
             onError = { error ->
                 isLoading = false
@@ -163,15 +171,19 @@ class AuthViewModel : ViewModel() {
         authRepository.logout()
         isAuthenticated = false
         currentUserRole = null
+        errorMessage = null
+        infoMessage = null
     }
 
     fun clearMessage() {
         errorMessage = null
+        infoMessage = null
     }
 
     private fun syncFcmToken(userId: String) {
+        if (userId.isBlank()) return
         FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { token: String ->
+            .addOnSuccessListener { token ->
                 FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(userId)

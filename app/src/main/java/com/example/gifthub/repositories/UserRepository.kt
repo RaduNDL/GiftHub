@@ -2,6 +2,7 @@ package com.example.gifthub.repositories
 
 import com.example.gifthub.models.UserDto
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.FirebaseFirestore
 
 class UserRepository {
@@ -15,12 +16,15 @@ class UserRepository {
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        usersCollection.document(user.userId)
-            .set(user)
+        if (user.userId.isBlank()) {
+            onError("Invalid user ID"); return
+        }
+        val safeUser = user.copy(role = "customer")
+
+        usersCollection.document(safeUser.userId)
+            .set(safeUser)
             .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener { e ->
-                onError(e.message ?: "Failed to create user")
-            }
+            .addOnFailureListener { e -> onError(e.message ?: "Failed to create user") }
     }
 
     fun getUser(
@@ -28,14 +32,15 @@ class UserRepository {
         onSuccess: (UserDto?) -> Unit,
         onError: (String) -> Unit
     ) {
+        if (userId.isBlank()) {
+            onError("Invalid user ID"); return
+        }
         usersCollection.document(userId)
             .get()
             .addOnSuccessListener { document ->
                 onSuccess(document.toObject(UserDto::class.java))
             }
-            .addOnFailureListener { e ->
-                onError(e.message ?: "Failed to fetch user")
-            }
+            .addOnFailureListener { e -> onError(e.message ?: "Failed to fetch user") }
     }
 
     fun getCurrentUserId(): String? = auth.currentUser?.uid
@@ -50,18 +55,16 @@ class UserRepository {
         userId: String,
         onSuccess: (ordersCount: Int, wishlistCount: Int, cardsCount: Int, addressesCount: Int) -> Unit
     ) {
+        if (userId.isBlank()) {
+            onSuccess(0, 0, 0, 0); return
+        }
         val userDoc = usersCollection.document(userId)
 
-        safeCount(userDoc.collection("orders")) { ordersCount ->
-            safeCount(userDoc.collection("favorites")) { wishlistCount ->
-                safeCount(userDoc.collection("paymentMethods")) { cardsCount ->
-                    safeCount(userDoc.collection("addresses")) { addressesCount ->
-                        onSuccess(
-                            ordersCount,
-                            wishlistCount,
-                            cardsCount,
-                            addressesCount
-                        )
+        safeCount(userDoc.collection("orders")) { orders ->
+            safeCount(userDoc.collection("favorites")) { wishlist ->
+                safeCount(userDoc.collection("paymentMethods")) { cards ->
+                    safeCount(userDoc.collection("addresses")) { addresses ->
+                        onSuccess(orders, wishlist, cards, addresses)
                     }
                 }
             }
@@ -69,15 +72,11 @@ class UserRepository {
     }
 
     private fun safeCount(
-        collectionRef: com.google.firebase.firestore.CollectionReference,
+        collectionRef: CollectionReference,
         onResult: (Int) -> Unit
     ) {
         collectionRef.get()
-            .addOnSuccessListener { snapshot ->
-                onResult(snapshot.size())
-            }
-            .addOnFailureListener {
-                onResult(0)
-            }
+            .addOnSuccessListener { snapshot -> onResult(snapshot.size()) }
+            .addOnFailureListener { onResult(0) }
     }
 }
