@@ -38,6 +38,7 @@ import java.util.Locale
 @Composable
 fun CheckoutScreen(
     onNavigate: (String) -> Unit,
+    onBack: () -> Unit,
     cartViewModel: CartViewModel,
     orderViewModel: OrderViewModel = viewModel(),
     addressViewModel: AddressViewModel = viewModel(),
@@ -134,7 +135,6 @@ fun CheckoutScreen(
         }
     }
 
-    // Succesul afișează dialogul când avem un orderId
     LaunchedEffect(placedOrderId) {
         if (placedOrderId.isNotBlank()) {
             showSuccessDialog = true
@@ -176,7 +176,7 @@ fun CheckoutScreen(
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { onNavigate(GiftHubDestinations.CART) }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
 
@@ -443,7 +443,7 @@ fun CheckoutScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedButton(
-                            onClick = { onNavigate(GiftHubDestinations.CART) },
+                            onClick = onBack,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(56.dp),

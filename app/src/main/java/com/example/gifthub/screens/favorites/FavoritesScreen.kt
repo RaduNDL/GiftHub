@@ -276,41 +276,48 @@ private fun FavoriteRow(
     ) {
         Column {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (product.imageUrl.isNotBlank()) {
-                    AsyncImage(
-                        model = product.imageUrl,
-                        contentDescription = product.name,
-                        modifier = Modifier
-                            .size(92.dp)
-                            .clip(RoundedCornerShape(22.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(92.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(22.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingBag,
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                ) {
+                    if (product.imageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = product.imageUrl,
                             contentDescription = product.name,
-                            modifier = Modifier.size(34.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(22.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ShoppingBag,
+                                contentDescription = product.name,
+                                modifier = Modifier.size(34.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.size(18.dp))
 
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
                 ) {
                     Text(
                         text = product.name,
@@ -328,15 +335,35 @@ private fun FavoriteRow(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
+
+                    if (product.stock <= 5 && product.stock > 0) {
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = "Only ${product.stock} left",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else if (product.stock == 0) {
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text(
+                            text = "Sold out",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 IconButton(
-                    onClick = onRemoveFavorite
+                    onClick = onRemoveFavorite,
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Favorite,
                         contentDescription = "Remove favorite",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -344,7 +371,7 @@ private fun FavoriteRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Button(
@@ -354,11 +381,11 @@ private fun FavoriteRow(
                         .height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
                 ) {
                     Text(
-                        text = "View",
+                        text = "View Details",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -371,7 +398,7 @@ private fun FavoriteRow(
                         .height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
@@ -379,19 +406,18 @@ private fun FavoriteRow(
                         imageVector = Icons.Outlined.ShoppingCart,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Spacer(modifier = Modifier.size(4.dp))
                     Text(
                         text = "Add",
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.size(4.dp))
         }
     }
 }

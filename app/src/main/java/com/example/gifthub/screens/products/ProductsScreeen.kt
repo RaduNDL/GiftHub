@@ -1,7 +1,6 @@
 package com.example.gifthub.screens.products
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.ImageNotSupported
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,9 +39,9 @@ import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.FavoriteViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.util.Locale
 
-// Accent warm coral/amber palette
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentAmber = Color(0xFFFFB347)
 private val DarkSurface = Color(0xFF1A1A2E)
@@ -63,13 +64,22 @@ fun ProductsScreen(
     var searchText by remember { mutableStateOf("") }
     var activeCategoryId by remember(selectedCategoryId) { mutableStateOf(selectedCategoryId ?: "") }
 
+    val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
         categoryViewModel.loadCategories()
     }
 
+    LaunchedEffect(userId) {
+        if (userId.isNotBlank()) {
+            favoriteViewModel.loadFavoriteIds(userId)
+        }
+    }
+
     val products = productViewModel.productsList
     val categories = categoryViewModel.categoriesList
+    val favoriteIds = favoriteViewModel.favoriteProductIds
 
     val filteredProducts = products.filter { product ->
         val matchesSearch = product.name.contains(searchText, ignoreCase = true)
@@ -91,7 +101,6 @@ fun ProductsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Header section with gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,7 +131,6 @@ fun ProductsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Search bar
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -163,7 +171,6 @@ fun ProductsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Category chips
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(end = 4.dp)
@@ -190,6 +197,15 @@ fun ProductsScreen(
                 Text(
                     err,
                     color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    fontSize = 13.sp
+                )
+            }
+
+            favoriteViewModel.userMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     fontSize = 13.sp
                 )
@@ -231,8 +247,14 @@ fun ProductsScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(filteredProducts) { product ->
+                            val isFavorite = favoriteIds.contains(product.idProduct)
+
                             ProductGridCard(
                                 product = product,
+                                isFavorite = isFavorite,
+                                onFavoriteClick = {
+                                    favoriteViewModel.toggleFavorite(userId, product)
+                                },
                                 onClick = {
                                     val safeId = product.idProduct.trim()
                                     if (safeId.isNotBlank()) {
@@ -290,6 +312,8 @@ private fun GiftCategoryChip(
 @Composable
 private fun ProductGridCard(
     product: ProductDto,
+    isFavorite: Boolean,
+    onFavoriteClick: () -> Unit,
     onClick: () -> Unit
 ) {
     Box(
@@ -301,7 +325,6 @@ private fun ProductGridCard(
             .clickable { onClick() }
             .shadow(8.dp, RoundedCornerShape(20.dp), clip = false)
     ) {
-        // Product image
         if (product.imageUrl.isNotBlank()) {
             AsyncImage(
                 model = product.imageUrl,
@@ -329,7 +352,6 @@ private fun ProductGridCard(
             }
         }
 
-        // Gradient overlay
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -344,11 +366,27 @@ private fun ProductGridCard(
                 )
         )
 
-        // Stock badge
-        if (product.stock <= 5 && product.stock > 0) {
+        IconButton(
+            onClick = onFavoriteClick,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp)
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(Color(0x66000000))
+        ) {
+            Icon(
+                imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                contentDescription = null,
+                tint = if (isFavorite) Color(0xFFFF4D6D) else Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        if (product.stock in 1..5) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopStart)
                     .padding(10.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(AccentOrange.copy(alpha = 0.9f))
@@ -364,7 +402,7 @@ private fun ProductGridCard(
         } else if (product.stock == 0) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
+                    .align(Alignment.TopStart)
                     .padding(10.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xCC333333))
@@ -379,12 +417,11 @@ private fun ProductGridCard(
             }
         }
 
-        // Customizable badge
         if (product.customizable) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(10.dp)
+                    .padding(start = 10.dp, top = 40.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(
                         Brush.horizontalGradient(listOf(AccentOrange, AccentAmber))
@@ -400,7 +437,6 @@ private fun ProductGridCard(
             }
         }
 
-        // Name + price
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)

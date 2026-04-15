@@ -130,7 +130,6 @@ fun GiftHubNavGraph() {
             val categoryName = Uri.decode(encodedCategoryName)
 
             ProductsScreen(
-                // Treat as PRODUCTS route so bottom bar highlights Products tab
                 currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
                     handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
@@ -153,10 +152,8 @@ fun GiftHubNavGraph() {
 
             ProductDetailsScreen(
                 productId = productId,
-                // Back arrow navigates back in stack; bottom bar uses handleNavigation
                 onNavigate = { destination ->
                     if (destination == GiftHubDestinations.PRODUCTS) {
-                        // Back arrow: pop back to wherever we came from
                         navController.popBackStack()
                     } else {
                         handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
@@ -222,6 +219,14 @@ fun GiftHubNavGraph() {
                 onNavigate = { destination ->
                     handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                 },
+                onBack = {
+                    val popped = navController.popBackStack()
+                    if (!popped) {
+                        navController.navigate(GiftHubDestinations.CART) {
+                            launchSingleTop = true
+                        }
+                    }
+                },
                 cartViewModel = cartViewModel
             )
         }
@@ -238,7 +243,6 @@ fun GiftHubNavGraph() {
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
-            // TODO: implement OrderDetailsScreen - for now go back
             navController.popBackStack()
         }
 
