@@ -1,6 +1,8 @@
 package com.example.gifthub.screens.products
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -9,8 +11,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.ImageNotSupported
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,9 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.gifthub.models.ReviewDto
 import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
+import com.example.gifthub.viewmodel.ReviewViewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.util.Locale
 
 private val AccentOrange = Color(0xFFFF6B35)
@@ -43,12 +52,15 @@ fun ProductDetailsScreen(
     productId: String,
     onNavigate: (String) -> Unit,
     productViewModel: ProductViewModel = viewModel(),
-    cartViewModel: CartViewModel = viewModel()
+    cartViewModel: CartViewModel = viewModel(),
+    reviewViewModel: ReviewViewModel = viewModel()
 ) {
     var quantity by remember { mutableStateOf(1) }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
     LaunchedEffect(productId) {
         productViewModel.loadProductById(productId)
+        reviewViewModel.fetchReviews(productId)
     }
 
     val product = productViewModel.selectedProduct
@@ -101,7 +113,6 @@ fun ProductDetailsScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Hero image section
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -134,7 +145,6 @@ fun ProductDetailsScreen(
                             }
                         }
 
-                        // Top-to-bottom dark gradient
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -149,7 +159,6 @@ fun ProductDetailsScreen(
                                 )
                         )
 
-                        // Back button
                         IconButton(
                             onClick = { onNavigate(GiftHubDestinations.PRODUCTS) },
                             modifier = Modifier
@@ -166,7 +175,6 @@ fun ProductDetailsScreen(
                             )
                         }
 
-                        // Customizable badge on image
                         if (product.customizable) {
                             Box(
                                 modifier = Modifier
@@ -188,7 +196,6 @@ fun ProductDetailsScreen(
                         }
                     }
 
-                    // Content card
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -201,7 +208,6 @@ fun ProductDetailsScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 28.dp)
                         ) {
-                            // Name + price row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -226,7 +232,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Stock indicator
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -245,7 +250,6 @@ fun ProductDetailsScreen(
                                 )
                             }
 
-                            // Description
                             if (product.description.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Text(
@@ -266,7 +270,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(28.dp))
 
-                            // Divider
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -276,7 +279,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // Quantity row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -351,7 +353,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(28.dp))
 
-                            // Total price preview
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -372,7 +373,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(20.dp))
 
-                            // CTA Button
                             Button(
                                 onClick = {
                                     if (product.customizable) {
@@ -425,7 +425,6 @@ fun ProductDetailsScreen(
                                 }
                             }
 
-                            // Success / error message
                             cartViewModel.userMessage?.let { message ->
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Box(
@@ -444,11 +443,259 @@ fun ProductDetailsScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            ReviewsSection(
+                                productId = productId,
+                                currentUserId = currentUserId,
+                                reviewViewModel = reviewViewModel
+                            )
+
+                            Spacer(modifier = Modifier.height(40.dp))
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun ReviewsSection(
+    productId: String,
+    currentUserId: String,
+    reviewViewModel: ReviewViewModel
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var reviewToEdit by remember { mutableStateOf<ReviewDto?>(null) }
+
+    val reviews = reviewViewModel.reviewsList
+    val userReview = reviews.find { it.userId == currentUserId }
+    val averageRating = if (reviews.isNotEmpty()) reviews.map { it.rating }.average() else 0.0
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF16213E))
+            .padding(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Customer Reviews",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF5F5F5)
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB347),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${String.format(Locale.US, "%.1f", averageRating)} (${reviews.size})",
+                        fontSize = 14.sp,
+                        color = Color(0xFFB0B0C0),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            if (userReview == null && currentUserId.isNotBlank()) {
+                Button(
+                    onClick = { showDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF252545)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Write Review", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (reviews.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
+                Text("No reviews yet. Be the first!", color = Color(0xFFB0B0C0), fontSize = 14.sp)
+            }
+        } else {
+            reviews.forEach { review ->
+                ReviewCard(
+                    review = review,
+                    isCurrentUser = review.userId == currentUserId,
+                    onEdit = {
+                        reviewToEdit = review
+                        showDialog = true
+                    },
+                    onDelete = { reviewViewModel.deleteReview(review.idReview, productId) }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
+    }
+
+    if (showDialog) {
+        ReviewDialog(
+            initialReview = reviewToEdit,
+            onDismiss = {
+                showDialog = false
+                reviewToEdit = null
+            },
+            onSubmit = { rating, comment ->
+                reviewViewModel.saveReview(productId, currentUserId, rating, comment, reviewToEdit?.idReview)
+                showDialog = false
+                reviewToEdit = null
+            }
+        )
+    }
+}
+
+@Composable
+fun ReviewCard(
+    review: ReviewDto,
+    isCurrentUser: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E1E3A))
+            .border(1.dp, if (isCurrentUser) Color(0xFF00F0FF).copy(alpha = 0.3f) else Color.Transparent, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column {
+                Text(
+                    text = if (isCurrentUser) "You" else "Verified Buyer",
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCurrentUser) Color(0xFF00F0FF) else Color(0xFFF5F5F5),
+                    fontSize = 14.sp
+                )
+                Row(modifier = Modifier.padding(top = 4.dp)) {
+                    repeat(5) { index ->
+                        Icon(
+                            imageVector = if (index < review.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB347),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+
+            if (isCurrentUser) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = Color(0xFF00F0FF),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable(onClick = onEdit)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFFF0055),
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clickable(onClick = onDelete)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = review.comment,
+            color = Color(0xFFB0B0C0),
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
+fun ReviewDialog(
+    initialReview: ReviewDto?,
+    onDismiss: () -> Unit,
+    onSubmit: (Int, String) -> Unit
+) {
+    var rating by remember { mutableStateOf(initialReview?.rating ?: 5) }
+    var comment by remember { mutableStateOf(initialReview?.comment ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1A2E),
+        title = {
+            Text(
+                text = if (initialReview == null) "Write a Review" else "Edit Review",
+                color = Color(0xFFF5F5F5),
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    repeat(5) { index ->
+                        Icon(
+                            imageVector = if (index < rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB347),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .padding(4.dp)
+                                .clickable { rating = index + 1 }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color(0xFFF5F5F5),
+                        unfocusedTextColor = Color(0xFFF5F5F5),
+                        focusedBorderColor = Color(0xFF00F0FF),
+                        unfocusedBorderColor = Color(0xFF353560)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(rating, comment) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B35))
+            ) {
+                Text("Submit", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color(0xFFB0B0C0))
+            }
+        }
+    )
 }
