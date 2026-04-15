@@ -1,6 +1,5 @@
 package com.example.gifthub.screens.products
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.ImageNotSupported
 import androidx.compose.material.icons.outlined.Person
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,13 +45,14 @@ import coil.compose.AsyncImage
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.navigation.GiftHubDestinations
 import com.example.gifthub.ui.components.GiftHubBottomBar
-import com.example.gifthub.ui.theme.ElectricBlue
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.FavoriteViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
+import com.example.gifthub.viewmodel.ReviewViewModel
 import com.google.firebase.auth.FirebaseAuth
 import java.util.Locale
+import kotlin.math.floor
 
 private val AccentOrange = Color(0xFFFF6B35)
 private val AccentAmber = Color(0xFFFFB347)
@@ -58,6 +61,18 @@ private val CardSurface = Color(0xFF16213E)
 private val TextPrimary = Color(0xFFF5F5F5)
 private val TextSecondary = Color(0xFFB0B0C0)
 private val NeonCyan = Color(0xFF00F0FF)
+private val StarGold = Color(0xFFFFD700)
+private val ElectricBlue = Color(0xFF0055FF)
+
+private fun roundToHalf(value: Double): Double {
+    return floor(value * 2) / 2.0
+}
+
+private fun meetsRatingFilter(productRating: Double, selectedRating: Int): Boolean {
+    if (selectedRating == 0) return true
+    val roundedRating = roundToHalf(productRating)
+    return roundedRating >= selectedRating
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,19 +84,31 @@ fun ProductsScreen(
     selectedCategoryName: String? = null,
     productViewModel: ProductViewModel = viewModel(),
     favoriteViewModel: FavoriteViewModel = viewModel(),
-    categoryViewModel: CategoryViewModel = viewModel()
+    categoryViewModel: CategoryViewModel = viewModel(),
+    reviewViewModel: ReviewViewModel = viewModel()
 ) {
     var searchText by remember { mutableStateOf("") }
     var activeCategoryId by remember(selectedCategoryId) { mutableStateOf(selectedCategoryId ?: "") }
     var showCategories by remember { mutableStateOf(false) }
     var profileMenuExpanded by remember { mutableStateOf(false) }
+    var selectedRating by remember { mutableIntStateOf(0) }
+    var showRatingFilter by remember { mutableStateOf(false) }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
     val isEmployee = authViewModel.currentUserRole == "employee"
 
+    val products = productViewModel.productsList
+    val categories = categoryViewModel.categoriesList
+    val favoriteIds = favoriteViewModel.favoriteProductIds
+
+    // Încarcă produse, categorii ȘI toate recenziile la intrarea pe ecran.
+    // IMPORTANT: folosim fetchAllReviews() (o singură interogare) în loc de
+    // a apela fetchReviews(productId) într-un loop, fiindcă acela suprascria
+    // reviewsList la fiecare produs și pierdeam datele.
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
         categoryViewModel.loadCategories()
+        reviewViewModel.fetchAllReviews()
     }
 
     LaunchedEffect(userId) {
@@ -90,14 +117,26 @@ fun ProductsScreen(
         }
     }
 
-    val products = productViewModel.productsList
-    val categories = categoryViewModel.categoriesList
-    val favoriteIds = favoriteViewModel.favoriteProductIds
+    // Calculăm ratingul mediu pentru fiecare produs din LISTA GLOBALĂ allReviews.
+    val productRatings = remember(products, reviewViewModel.allReviews) {
+        val grouped = reviewViewModel.allReviews.groupBy { it.productId }
+        products.associate { product ->
+            val reviewsForProduct = grouped[product.idProduct].orEmpty()
+            val averageRating = if (reviewsForProduct.isNotEmpty()) {
+                roundToHalf(reviewsForProduct.map { it.rating }.average())
+            } else {
+                0.0
+            }
+            product.idProduct to averageRating
+        }
+    }
 
     val filteredProducts = products.filter { product ->
         val matchesSearch = product.name.contains(searchText, ignoreCase = true)
         val matchesCategory = activeCategoryId.isBlank() || product.categoryId == activeCategoryId
-        matchesSearch && matchesCategory
+        val productRating = productRatings[product.idProduct] ?: 0.0
+        val matchesRating = meetsRatingFilter(productRating, selectedRating)
+        matchesSearch && matchesCategory && matchesRating
     }
 
     Scaffold(
@@ -213,6 +252,7 @@ fun ProductsScreen(
                     }
                 }
 
+                // Title Section
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
                         Text(
@@ -230,6 +270,7 @@ fun ProductsScreen(
                             modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                         )
 
+                        // Search Bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -270,13 +311,15 @@ fun ProductsScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
+                        // Filter Chips Row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Category Filter
                             GiftCategoryExpandableChip(
                                 label = if (activeCategoryId.isBlank()) "All Categories" else categories.firstOrNull { it.categoryId == activeCategoryId }?.name ?: "All Categories",
                                 isExpanded = showCategories,
@@ -287,7 +330,6 @@ fun ProductsScreen(
                                 if (activeCategoryId.isNotBlank()) {
                                     GiftCategoryChip(
                                         label = "Clear Filter",
-                                        selected = false,
                                         onClick = {
                                             activeCategoryId = ""
                                             showCategories = false
@@ -298,10 +340,67 @@ fun ProductsScreen(
                                 categories.filter { it.categoryId != activeCategoryId }.forEach { category ->
                                     GiftCategoryChip(
                                         label = category.name,
-                                        selected = false,
                                         onClick = {
                                             activeCategoryId = category.categoryId
                                             showCategories = false
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Rating Filter Chip
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(
+                                        if (showRatingFilter)
+                                            Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
+                                        else
+                                            SolidColor(Color(0xFF16213E).copy(alpha = 0.8f))
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (showRatingFilter) Color.Transparent else Color(0xFF353560),
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .clickable { showRatingFilter = !showRatingFilter }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Rating",
+                                        tint = StarGold,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = if (selectedRating == 0) "Rating" else "$selectedRating+ Stars",
+                                        color = if (showRatingFilter) Color.White else TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showRatingFilter) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf(0, 1, 2, 3, 4, 5).forEach { rating ->
+                                    RatingFilterChip(
+                                        rating = rating,
+                                        isSelected = selectedRating == rating,
+                                        onClick = {
+                                            selectedRating = rating
+                                            showRatingFilter = false
                                         }
                                     )
                                 }
@@ -343,6 +442,7 @@ fun ProductsScreen(
                     }
                 }
 
+                // Error/Success Messages
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
                         productViewModel.errorMessage?.let { err ->
@@ -367,6 +467,7 @@ fun ProductsScreen(
                     }
                 }
 
+                // Loading/Empty State
                 if (productViewModel.isLoading && filteredProducts.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(
@@ -401,11 +502,13 @@ fun ProductsScreen(
                 } else {
                     items(filteredProducts) { product ->
                         val isFavorite = favoriteIds.contains(product.idProduct)
+                        val productRating = productRatings[product.idProduct] ?: 0.0
 
                         ProductGridCard(
                             product = product,
                             isFavorite = isFavorite,
                             isEmployee = isEmployee,
+                            averageRating = productRating,
                             onFavoriteClick = {
                                 favoriteViewModel.toggleFavorite(userId, product)
                             },
@@ -426,6 +529,55 @@ fun ProductsScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatingFilterChip(
+    rating: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) StarGold else Color(0xFF16213E).copy(alpha = 0.8f))
+            .border(
+                width = 1.5.dp,
+                color = if (isSelected) StarGold else Color(0xFF353560),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (rating > 0) {
+                repeat(rating) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = if (isSelected) Color.Black else StarGold,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+                Text(
+                    text = "& Up",
+                    color = if (isSelected) Color.Black else TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Text(
+                    text = "All",
+                    color = if (isSelected) Color.Black else TextPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
@@ -476,25 +628,15 @@ private fun GiftCategoryExpandableChip(
 @Composable
 private fun GiftCategoryChip(
     label: String,
-    selected: Boolean,
     onClick: () -> Unit
 ) {
-    val bgColor by animateColorAsState(
-        targetValue = if (selected) AccentOrange else Color(0xFF16213E).copy(alpha = 0.8f),
-        label = "chip_bg"
-    )
-    val textColor by animateColorAsState(
-        targetValue = if (selected) Color.White else TextPrimary,
-        label = "chip_text"
-    )
-
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(bgColor)
+            .background(Color(0xFF16213E).copy(alpha = 0.8f))
             .border(
                 width = 1.dp,
-                color = if (selected) Color.Transparent else Color(0xFF353560),
+                color = Color(0xFF353560),
                 shape = RoundedCornerShape(24.dp)
             )
             .clickable { onClick() }
@@ -502,9 +644,9 @@ private fun GiftCategoryChip(
     ) {
         Text(
             text = label,
-            color = textColor,
+            color = TextPrimary,
             fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -514,6 +656,7 @@ private fun ProductGridCard(
     product: ProductDto,
     isFavorite: Boolean,
     isEmployee: Boolean,
+    averageRating: Double,
     onFavoriteClick: () -> Unit,
     onClick: () -> Unit,
     onEdit: () -> Unit = {},
@@ -664,21 +807,35 @@ private fun ProductGridCard(
                     )
                 }
             }
+        }
 
-            if (product.customizable) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.horizontalGradient(listOf(NeonCyan, ElectricBlue))
-                        )
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+        // Rating Badge - Display Decimal Ratings
+        if (averageRating > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.horizontalGradient(listOf(StarGold, AccentAmber))
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Rating",
+                        tint = Color.Black,
+                        modifier = Modifier.size(12.dp)
+                    )
                     Text(
-                        text = "✦ Custom",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        text = String.format(Locale.US, "%.1f", averageRating),
+                        color = Color.Black,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }

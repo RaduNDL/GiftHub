@@ -14,8 +14,14 @@ import java.util.UUID
 class ReviewViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
+    // Recenziile pentru UN singur produs (folosit în ProductDetailsScreen)
     var reviewsList by mutableStateOf<List<ReviewDto>>(emptyList())
         private set
+
+    // TOATE recenziile din colecție (folosit în ProductsScreen pentru rating + filtrare)
+    var allReviews by mutableStateOf<List<ReviewDto>>(emptyList())
+        private set
+
     var isLoading by mutableStateOf(false)
         private set
     var errorMessage by mutableStateOf<String?>(null)
@@ -30,7 +36,8 @@ class ReviewViewModel : ViewModel() {
                     .whereEqualTo("productId", productId)
                     .get()
                     .await()
-                reviewsList = snapshot.documents.mapNotNull { it.toObject(ReviewDto::class.java) }
+                reviewsList = snapshot.documents
+                    .mapNotNull { it.toObject(ReviewDto::class.java) }
                     .sortedByDescending { it.postDate }
             } catch (e: Exception) {
                 errorMessage = e.message
@@ -40,7 +47,36 @@ class ReviewViewModel : ViewModel() {
         }
     }
 
-    fun saveReview(productId: String, userId: String, rating: Int, comment: String, existingReviewId: String?) {
+    /**
+     * Preia TOATE recenziile dintr-o singură interogare Firestore.
+     * Necesar pentru calculul ratingurilor în lista de produse,
+     * astfel încât să nu se suprascrie reviewsList la fiecare produs.
+     */
+    fun fetchAllReviews() {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                val snapshot = db.collection("reviews")
+                    .get()
+                    .await()
+                allReviews = snapshot.documents
+                    .mapNotNull { it.toObject(ReviewDto::class.java) }
+            } catch (e: Exception) {
+                errorMessage = e.message
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    fun saveReview(
+        productId: String,
+        userId: String,
+        rating: Int,
+        comment: String,
+        existingReviewId: String?
+    ) {
         viewModelScope.launch {
             isLoading = true
             try {
@@ -55,6 +91,8 @@ class ReviewViewModel : ViewModel() {
                 )
                 db.collection("reviews").document(reviewId).set(review).await()
                 fetchReviews(productId)
+                // Reîncarcă și lista globală ca rating-urile să fie la zi în ProductsScreen
+                fetchAllReviews()
             } catch (e: Exception) {
                 errorMessage = e.message
             } finally {
@@ -69,6 +107,7 @@ class ReviewViewModel : ViewModel() {
             try {
                 db.collection("reviews").document(reviewId).delete().await()
                 fetchReviews(productId)
+                fetchAllReviews()
             } catch (e: Exception) {
                 errorMessage = e.message
             } finally {
