@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.Button
@@ -32,6 +33,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -60,6 +62,7 @@ fun EditProductScreen(
     categoryViewModel: CategoryViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf("") }
     var stockStr by remember { mutableStateOf("") }
     var imageUrl by remember { mutableStateOf("") }
@@ -82,6 +85,7 @@ fun EditProductScreen(
     LaunchedEffect(product) {
         product?.let {
             name = it.name
+            description = it.description
             priceStr = it.price.toString()
             stockStr = it.stock.toString()
             imageUrl = it.imageUrl
@@ -162,6 +166,24 @@ fun EditProductScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Description") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Description,
+                                contentDescription = null
+                            )
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        minLines = 3,
+                        maxLines = 5
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
                         value = imageUrl,
                         onValueChange = { imageUrl = it },
                         modifier = Modifier.fillMaxWidth(),
@@ -225,7 +247,7 @@ fun EditProductScreen(
                             onValueChange = {},
                             readOnly = true,
                             modifier = Modifier
-                                .menuAnchor()
+                                .menuAnchor(MenuAnchorType.PrimaryEditable)
                                 .fillMaxWidth(),
                             label = { Text("Category") },
                             leadingIcon = {
@@ -281,6 +303,7 @@ fun EditProductScreen(
                             viewModel.updateProduct(
                                 productId = productId,
                                 name = name,
+                                description = description,
                                 priceStr = priceStr,
                                 stockStr = stockStr,
                                 categoryIdStr = selectedCategoryId,

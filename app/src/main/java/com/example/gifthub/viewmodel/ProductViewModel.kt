@@ -5,16 +5,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.repositories.ProductRepository
-import kotlinx.coroutines.launch
-
-data class ProductUiState(
-    val isLoading: Boolean = false,
-    val selectedProduct: ProductDto? = null,
-    val error: String? = null
-)
 
 class ProductViewModel : ViewModel() {
     private val repository = ProductRepository()
@@ -28,6 +20,23 @@ class ProductViewModel : ViewModel() {
         isLoading = true
         errorMessage = null
         repository.getAllProducts(
+            onSuccess = { products ->
+                productsList.clear()
+                productsList.addAll(products)
+                isLoading = false
+            },
+            onError = { error ->
+                errorMessage = error
+                isLoading = false
+            }
+        )
+    }
+
+    fun loadProductsByCategory(categoryId: String) {
+        isLoading = true
+        errorMessage = null
+        repository.getProductsByCategory(
+            categoryId = categoryId,
             onSuccess = { products ->
                 productsList.clear()
                 productsList.addAll(products)
@@ -59,6 +68,7 @@ class ProductViewModel : ViewModel() {
 
     fun addProduct(
         name: String,
+        description: String,
         priceStr: String,
         stockStr: String,
         categoryIdStr: String,
@@ -77,10 +87,16 @@ class ProductViewModel : ViewModel() {
         val product = ProductDto(
             idProduct = "",
             name = name,
+            description = description,
             price = price,
             stock = stock,
             categoryId = categoryIdStr,
-            imageUrl = imageUrl
+            imageUrl = imageUrl,
+            active = true,
+            customizable = false,
+            customizationOptions = emptyList(),
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
         )
 
         repository.addProduct(
@@ -100,6 +116,7 @@ class ProductViewModel : ViewModel() {
     fun updateProduct(
         productId: String,
         name: String,
+        description: String,
         priceStr: String,
         stockStr: String,
         categoryIdStr: String,
@@ -118,10 +135,16 @@ class ProductViewModel : ViewModel() {
         val product = ProductDto(
             idProduct = productId,
             name = name,
+            description = description,
             price = price,
             stock = stock,
             categoryId = categoryIdStr,
-            imageUrl = imageUrl
+            imageUrl = imageUrl,
+            active = true,
+            customizable = false,
+            customizationOptions = emptyList(),
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis()
         )
 
         repository.updateProduct(

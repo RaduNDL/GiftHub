@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.automirrored.outlined.Label
@@ -58,6 +59,7 @@ fun AddProductScreen(
     categoryViewModel: CategoryViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf("") }
     var stockStr by remember { mutableStateOf("") }
     var imageUrl by remember { mutableStateOf("") }
@@ -120,6 +122,24 @@ fun AddProductScreen(
                     },
                     shape = RoundedCornerShape(16.dp),
                     singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Description") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Description,
+                            contentDescription = null
+                        )
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    minLines = 3,
+                    maxLines = 5
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -244,6 +264,7 @@ fun AddProductScreen(
                     onClick = {
                         viewModel.addProduct(
                             name = name,
+                            description = description,
                             priceStr = priceStr,
                             stockStr = stockStr,
                             categoryIdStr = selectedCategoryId,
