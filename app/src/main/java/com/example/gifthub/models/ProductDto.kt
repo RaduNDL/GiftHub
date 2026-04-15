@@ -3,14 +3,14 @@ package com.example.gifthub.models
 data class ProductDto(
     val idProduct: String = "",
     val name: String = "",
-    val description: String = "",
     val price: Double = 0.0,
-    val categoryId: String = "",
     val imageUrl: String = "",
+    val categoryId: String = "",
     val stock: Int = 0,
-    val active: Boolean = true,
+    val description: String = "",
     val customizable: Boolean = false,
-    val customizationOptions: List<CustomizationOption> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val customizationOptions: List<CustomizationOptionDto> = emptyList(),
+    val active: Boolean = true,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
 )

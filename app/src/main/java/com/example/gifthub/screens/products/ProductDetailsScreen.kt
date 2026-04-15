@@ -426,7 +426,7 @@ fun ProductDetailsScreen(
                             }
 
                             // Success / error message
-                            cartViewModel.userMessage?.let {
+                            cartViewModel.userMessage?.let { message ->
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Box(
                                     modifier = Modifier
@@ -436,7 +436,7 @@ fun ProductDetailsScreen(
                                         .padding(12.dp)
                                 ) {
                                     Text(
-                                        it,
+                                        message,
                                         color = Color(0xFF81C784),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium

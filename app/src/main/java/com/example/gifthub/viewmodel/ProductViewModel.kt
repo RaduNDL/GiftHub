@@ -154,7 +154,7 @@ class ProductViewModel : ViewModel() {
             stock = stock,
             categoryId = categoryIdStr,
             imageUrl = imageUrl.trim(),
-            active = true,
+            active = selectedProduct?.active ?: true,
             customizable = selectedProduct?.customizable ?: false,
             customizationOptions = selectedProduct?.customizationOptions ?: emptyList(),
             createdAt = createdAtValue,

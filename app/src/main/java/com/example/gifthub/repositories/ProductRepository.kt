@@ -13,7 +13,6 @@ class ProductRepository {
                 val products = snapshot.documents.mapNotNull { doc ->
                     try {
                         val dto = doc.toObject(ProductDto::class.java) ?: return@mapNotNull null
-                        // IMPORTANT: fallback pe document id dacă idProduct lipsește
                         dto.copy(idProduct = if (dto.idProduct.isBlank()) doc.id else dto.idProduct)
                     } catch (_: Exception) {
                         null
@@ -80,7 +79,7 @@ class ProductRepository {
         }
 
         collection.document(product.idProduct)
-            .set(product.copy(updatedAt = System.currentTimeMillis()))
+            .set(product)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { onError(it.message ?: "Failed to update product") }
     }

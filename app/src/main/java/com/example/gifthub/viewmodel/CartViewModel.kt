@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.gifthub.models.ProductDto
-import com.example.gifthub.models.SelectedCustomization
+import com.example.gifthub.models.SelectedCustomizationDto
 import com.example.gifthub.models.ShoppingCartDto
 import com.example.gifthub.repositories.CartRepository
 
@@ -39,10 +39,12 @@ class CartViewModel : ViewModel() {
 
     fun addToCart(product: ProductDto, quantity: Int = 1) {
         if (quantity <= 0) {
-            userMessage = "Invalid quantity"; return
+            userMessage = "Invalid quantity"
+            return
         }
         if (product.idProduct.isBlank()) {
-            userMessage = "Invalid product"; return
+            userMessage = "Invalid product"
+            return
         }
 
         isLoading = true
@@ -62,13 +64,15 @@ class CartViewModel : ViewModel() {
     fun addCustomizedToCart(
         product: ProductDto,
         quantity: Int,
-        selections: List<SelectedCustomization>
+        selections: List<SelectedCustomizationDto>
     ) {
         if (quantity <= 0) {
-            userMessage = "Invalid quantity"; return
+            userMessage = "Invalid quantity"
+            return
         }
         if (product.idProduct.isBlank()) {
-            userMessage = "Invalid product"; return
+            userMessage = "Invalid product"
+            return
         }
 
         isLoading = true
@@ -88,7 +92,8 @@ class CartViewModel : ViewModel() {
 
     fun updateQuantity(cartItemId: String, newQuantity: Int) {
         if (cartItemId.isBlank()) {
-            userMessage = "Invalid cart item ID"; return
+            userMessage = "Invalid cart item ID"
+            return
         }
 
         isLoading = true
@@ -105,7 +110,8 @@ class CartViewModel : ViewModel() {
 
     fun removeFromCart(cartItemId: String) {
         if (cartItemId.isBlank()) {
-            userMessage = "Invalid cart item ID"; return
+            userMessage = "Invalid cart item ID"
+            return
         }
 
         isLoading = true

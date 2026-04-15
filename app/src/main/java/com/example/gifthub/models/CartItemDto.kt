@@ -12,5 +12,5 @@ data class CartItemDto(
     val lineExtraPrice: Double = 0.0,
     val lineTotalPrice: Double = 0.0,
     val customizationsHash: String = "",
-    val selectedCustomizations: List<SelectedCustomization> = emptyList()
+    val selectedCustomizations: List<SelectedCustomizationDto> = emptyList()
 )
