@@ -123,8 +123,6 @@ fun ProductsScreen(
         }
     }
 
-    val selectedCategoryIdInt = activeCategoryId.toIntOrNull()
-
     val filteredProducts = products.filter { product ->
         val matchesSearch = product.name.contains(searchText, ignoreCase = true)
         val matchesCategory = activeCategoryId.isBlank() || product.categoryId == activeCategoryId
