@@ -18,13 +18,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.gifthub.models.AddressDto
 import com.example.gifthub.models.PaymentMethodDto
 import com.example.gifthub.navigation.GiftHubDestinations
@@ -261,6 +267,16 @@ fun CheckoutScreen(
                 ) {
                     HeroCheckoutCard(total = cart.temporaryValue)
 
+                    // ✅ NEW: Product Preview Section
+                    SectionTitle("Your Items")
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        cart.items.forEach { item ->
+                            ProductPreviewCard(item)
+                        }
+                    }
+
                     SectionTitle("Delivery Address")
                     if (addresses.isNotEmpty()) {
                         addresses.forEach { address ->
@@ -491,6 +507,99 @@ fun CheckoutScreen(
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+        }
+    }
+}
+
+// ✅ NEW: Product Preview Card with Custom Image
+@Composable
+private fun ProductPreviewCard(item: com.example.gifthub.models.CartItemDto) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Product Preview Image
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFFE0E0E0), Color(0xFFF5F5F5))
+                        )
+                    )
+            ) {
+                if (item.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("No Image", fontSize = 11.sp, color = Color(0xFF999999))
+                    }
+                }
+            }
+
+            // Product Details
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2
+                    )
+
+                    if (item.customText.isNotBlank()) {
+                        Text(
+                            text = "Message: \"${item.customText}\"",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 11.sp,
+                            maxLines = 2
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Qty: ${item.quantity}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = "$${String.format(Locale.US, "%.2f", item.lineTotalPrice)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

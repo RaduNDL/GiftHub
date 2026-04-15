@@ -8,7 +8,6 @@ data class CartItem(
     val productImage: String = "",
     val basePrice: Double = 0.0,
     val quantity: Int = 0,
-    val selectedCustomizations: List<SelectedCustomization> = emptyList(),
     val customizationsHash: String = "",
     val lineExtraPrice: Double = 0.0,
     val lineTotalPrice: Double = 0.0,

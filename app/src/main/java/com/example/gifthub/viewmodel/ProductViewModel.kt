@@ -32,23 +32,6 @@ class ProductViewModel : ViewModel() {
         )
     }
 
-    fun loadProductsByCategory(categoryId: String) {
-        isLoading = true
-        errorMessage = null
-        repository.getProductsByCategory(
-            categoryId = categoryId,
-            onSuccess = { products ->
-                productsList.clear()
-                productsList.addAll(products)
-                isLoading = false
-            },
-            onError = { error ->
-                errorMessage = error
-                isLoading = false
-            }
-        )
-    }
-
     fun loadProductById(productId: String) {
         if (productId.isBlank()) {
             selectedProduct = null
@@ -104,8 +87,6 @@ class ProductViewModel : ViewModel() {
             categoryId = categoryIdStr,
             imageUrl = imageUrl.trim(),
             active = true,
-            customizable = false,
-            customizationOptions = emptyList(),
             createdAt = now,
             updatedAt = now
         )
@@ -155,8 +136,6 @@ class ProductViewModel : ViewModel() {
             categoryId = categoryIdStr,
             imageUrl = imageUrl.trim(),
             active = selectedProduct?.active ?: true,
-            customizable = selectedProduct?.customizable ?: false,
-            customizationOptions = selectedProduct?.customizationOptions ?: emptyList(),
             createdAt = createdAtValue,
             updatedAt = System.currentTimeMillis()
         )
@@ -195,9 +174,5 @@ class ProductViewModel : ViewModel() {
                 isLoading = false
             }
         )
-    }
-
-    fun clearSelectedProduct() {
-        selectedProduct = null
     }
 }

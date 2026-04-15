@@ -9,7 +9,6 @@ data class ProductDto(
     val stock: Int = 0,
     val description: String = "",
     val customizable: Boolean = false,
-    val customizationOptions: List<CustomizationOptionDto> = emptyList(),
     val active: Boolean = true,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L

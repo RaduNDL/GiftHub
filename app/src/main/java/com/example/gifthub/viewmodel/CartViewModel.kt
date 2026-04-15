@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.gifthub.models.ProductDto
-import com.example.gifthub.models.SelectedCustomizationDto
 import com.example.gifthub.models.ShoppingCartDto
 import com.example.gifthub.repositories.CartRepository
 
@@ -56,35 +55,6 @@ class CartViewModel : ViewModel() {
             },
             onError = { error ->
                 userMessage = error
-                isLoading = false
-            }
-        )
-    }
-
-    fun addCustomizedToCart(
-        product: ProductDto,
-        quantity: Int,
-        selections: List<SelectedCustomizationDto>
-    ) {
-        if (quantity <= 0) {
-            userMessage = "Invalid quantity"
-            return
-        }
-        if (product.idProduct.isBlank()) {
-            userMessage = "Invalid product"
-            return
-        }
-
-        isLoading = true
-        repository.addCustomizedToCart(
-            product = product,
-            quantityToAdd = quantity,
-            selections = selections,
-            onSuccess = {
-                refreshCart("Personalized product added to cart")
-            },
-            onError = { error ->
-                userMessage = "Error adding to cart: $error"
                 isLoading = false
             }
         )

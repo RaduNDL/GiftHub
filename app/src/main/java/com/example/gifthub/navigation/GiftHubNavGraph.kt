@@ -3,8 +3,6 @@ package com.example.gifthub.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -15,7 +13,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.gifthub.repositories.ProductCustomizationRepositoryImpl
 import com.example.gifthub.screens.address.ManageAddressScreen
 import com.example.gifthub.screens.auth.LoginScreen
 import com.example.gifthub.screens.auth.RegisterScreen
@@ -29,7 +26,6 @@ import com.example.gifthub.screens.orders.OrderHistoryScreen
 import com.example.gifthub.screens.payments.SavedPaymentsScreen
 import com.example.gifthub.screens.products.AddProductScreen
 import com.example.gifthub.screens.products.EditProductScreen
-import com.example.gifthub.screens.products.ProductCustomizationScreen
 import com.example.gifthub.screens.products.ProductDetailsScreen
 import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
@@ -37,9 +33,7 @@ import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.NotificationViewModel
 import com.example.gifthub.viewmodel.OrderViewModel
-import com.example.gifthub.viewmodel.ProductCustomizationViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
-import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun GiftHubNavGraph() {
@@ -159,31 +153,8 @@ fun GiftHubNavGraph() {
                         handleNavigation(navController, normalizedCurrentRoute, destination, authViewModel)
                     }
                 },
-                productViewModel = productViewModel
-            )
-        }
-
-        composable(
-            route = GiftHubDestinations.PRODUCT_CUSTOMIZATION,
-            arguments = listOf(navArgument("productId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val productId = backStackEntry.arguments?.getString("productId").orEmpty()
-
-            val customizationViewModel: ProductCustomizationViewModel = viewModel(
-                factory = ProductCustomizationViewModelFactory(
-                    repository = ProductCustomizationRepositoryImpl(FirebaseFirestore.getInstance())
-                )
-            )
-
-            ProductCustomizationScreen(
-                productId = productId,
-                viewModel = customizationViewModel,
-                cartViewModel = cartViewModel,
-                onBack = { navController.popBackStack() },
-                onAddedToCart = {
-                    cartViewModel.loadCart()
-                    navigateToTopLevel(navController, GiftHubDestinations.CART)
-                }
+                productViewModel = productViewModel,
+                cartViewModel = cartViewModel
             )
         }
 
@@ -342,24 +313,9 @@ private fun NavDestination?.normalizedRoute(): String? {
         route == GiftHubDestinations.EDIT_PRODUCT ||
                 route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
 
-        route == GiftHubDestinations.PRODUCT_CUSTOMIZATION ||
-                route.startsWith("product_customization/") -> GiftHubDestinations.PRODUCTS
-
         route == GiftHubDestinations.ORDER_DETAILS ||
                 route.startsWith("order_details/") -> GiftHubDestinations.ORDER_HISTORY
 
         else -> route
-    }
-}
-
-class ProductCustomizationViewModelFactory(
-    private val repository: com.example.gifthub.repositories.ProductCustomizationRepository
-) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ProductCustomizationViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
-            return ProductCustomizationViewModel(repository) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
