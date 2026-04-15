@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,9 +45,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.gifthub.models.CategoryDto
@@ -79,17 +82,25 @@ fun ManageCategoriesScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription = "Back",
+                        tint = Color(0xFFFF6B35)
                     )
                 }
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Text(
-                    text = "Manage Categories",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text(
+                        text = "Manage Categories",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "${viewModel.categoriesList.size} categories",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         floatingActionButton = {
@@ -102,9 +113,9 @@ fun ManageCategoriesScreen(
                     showDialog = true
                 },
                 icon = { Icon(Icons.Default.Add, contentDescription = "Add Category") },
-                text = { Text("Add Category") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                text = { Text("Add Category", fontWeight = FontWeight.Bold) },
+                containerColor = Color(0xFFFF6B35),
+                contentColor = Color.White
             )
         }
     ) { paddingValues ->
@@ -127,7 +138,8 @@ fun ManageCategoriesScreen(
                         Text(
                             text = message,
                             color = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -137,17 +149,22 @@ fun ManageCategoriesScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        CircularProgressIndicator(color = Color(0xFFFF6B35))
                     }
                 } else if (viewModel.categoriesList.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No categories available.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📂", fontSize = 48.sp)
+                            Spacer(modifier = Modifier.padding(top = 12.dp))
+                            Text(
+                                text = "No categories available.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -181,7 +198,7 @@ fun ManageCategoriesScreen(
             onDismissRequest = { showDialog = false },
             title = {
                 Text(
-                    text = if (categoryToEdit == null) "Add Category" else "Edit Category",
+                    text = if (categoryToEdit == null) "Add New Category" else "Edit Category",
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -190,7 +207,7 @@ fun ManageCategoriesScreen(
                     OutlinedTextField(
                         value = categoryName,
                         onValueChange = { categoryName = it },
-                        label = { Text("Name") },
+                        label = { Text("Category Name *") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
@@ -201,7 +218,9 @@ fun ManageCategoriesScreen(
                         onValueChange = { categoryDesc = it },
                         label = { Text("Description") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        minLines = 2,
+                        maxLines = 3
                     )
 
                     OutlinedTextField(
@@ -234,16 +253,17 @@ fun ManageCategoriesScreen(
                             }
                             showDialog = false
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B35))
                 ) {
-                    Text("Save")
+                    Text("Save", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showDialog = false }
                 ) {
-                    Text("Cancel")
+                    Text("Cancel", color = Color(0xFFFF6B35))
                 }
             }
         )
@@ -262,7 +282,7 @@ fun CategoryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -271,36 +291,38 @@ fun CategoryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Category Image
             if (category.imageUrl.isNotBlank()) {
                 AsyncImage(
                     model = category.imageUrl,
                     contentDescription = category.name,
                     modifier = Modifier
-                        .size(60.dp)
+                        .size(70.dp)
                         .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop
                 )
             } else {
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
+                        .size(70.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
+                            color = Color(0xFFFF6B35).copy(alpha = 0.2f),
                             shape = RoundedCornerShape(12.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = category.name.take(1).uppercase(),
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color(0xFFFF6B35)
                     )
                 }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
+            // Category Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = category.name,
@@ -313,25 +335,35 @@ fun CategoryCard(
 
                 Text(
                     text = category.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
                 )
             }
 
-            Row {
-                IconButton(onClick = onEdit) {
+            // Edit & Delete Buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit",
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = Color(0xFFFF6B35),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = Color(0xFFD32F2F),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

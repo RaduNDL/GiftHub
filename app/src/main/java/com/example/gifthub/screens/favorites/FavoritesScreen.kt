@@ -80,16 +80,11 @@ fun FavoritesScreen(
         }
     }
 
-    LaunchedEffect(favorites.size) {
-        if (favorites.isNotEmpty()) {
-            favoriteViewModel.clearUserMessage()
-        }
-    }
-
     LaunchedEffect(favoriteViewModel.userMessage) {
         favoriteViewModel.userMessage?.let { message ->
             coroutineScope.launch {
                 snackbarHostState.showSnackbar(message)
+                favoriteViewModel.clearUserMessage()
             }
         }
     }
@@ -316,8 +311,7 @@ private fun FavoriteRow(
                 Spacer(modifier = Modifier.size(18.dp))
 
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
+                    modifier = Modifier.weight(1f)
                 ) {
                     Text(
                         text = product.name,

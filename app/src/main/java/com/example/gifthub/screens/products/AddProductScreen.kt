@@ -16,12 +16,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +32,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -44,9 +45,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
@@ -87,6 +90,7 @@ fun AddProductScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
+                // Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(bottom = 32.dp)
@@ -97,18 +101,27 @@ fun AddProductScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    Text(
-                        text = "Add New Product",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
+                    Column {
+                        Text(
+                            text = "Add New Product",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "Create a new gift product",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
+                // Product Name
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -126,6 +139,7 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Description
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -144,6 +158,7 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Image URL
                 OutlinedTextField(
                     value = imageUrl,
                     onValueChange = { imageUrl = it },
@@ -162,6 +177,7 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Price & Stock
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -169,7 +185,7 @@ fun AddProductScreen(
                         value = priceStr,
                         onValueChange = { priceStr = it },
                         modifier = Modifier.weight(1f),
-                        label = { Text("Price") },
+                        label = { Text("Price ($)") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.AttachMoney,
@@ -185,7 +201,7 @@ fun AddProductScreen(
                         value = stockStr,
                         onValueChange = { stockStr = it },
                         modifier = Modifier.weight(1f),
-                        label = { Text("Stock") },
+                        label = { Text("Stock (qty)") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Inventory2,
@@ -200,6 +216,7 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Category Dropdown
                 ExposedDropdownMenuBox(
                     expanded = categoryExpanded,
                     onExpandedChange = { categoryExpanded = !categoryExpanded }
@@ -209,9 +226,9 @@ fun AddProductScreen(
                         onValueChange = {},
                         readOnly = true,
                         modifier = Modifier
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryEditable)
                             .fillMaxWidth(),
-                        label = { Text("Category") },
+                        label = { Text("Category *") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Outlined.Category,
@@ -243,6 +260,7 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
+                // Error Message
                 viewModel.errorMessage?.let { message ->
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -260,8 +278,13 @@ fun AddProductScreen(
                     }
                 }
 
+                // Save Button
                 Button(
                     onClick = {
+                        if (selectedCategoryId.isBlank()) {
+                            viewModel.errorMessage = "Please select a category"
+                            return@Button
+                        }
                         viewModel.addProduct(
                             name = name,
                             description = description,
@@ -277,21 +300,21 @@ fun AddProductScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    enabled = !viewModel.isLoading,
+                    enabled = !viewModel.isLoading && name.isNotBlank() && priceStr.isNotBlank() && stockStr.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = Color(0xFFFF6B35)
                     )
                 ) {
                     if (viewModel.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = Color.White,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Saving...", style = MaterialTheme.typography.titleMedium)
+                        Text("Saving...", style = MaterialTheme.typography.titleMedium, color = Color.White)
                     } else {
-                        Text("Save Product", style = MaterialTheme.typography.titleMedium)
+                        Text("Save Product", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }

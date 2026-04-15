@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -13,6 +14,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.ImageNotSupported
 import androidx.compose.material.icons.rounded.Favorite
@@ -63,8 +69,10 @@ fun ProductsScreen(
 ) {
     var searchText by remember { mutableStateOf("") }
     var activeCategoryId by remember(selectedCategoryId) { mutableStateOf(selectedCategoryId ?: "") }
+    var showCategories by remember { mutableStateOf(false) }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    val isEmployee = authViewModel.currentUserRole == "employee"
 
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
@@ -171,23 +179,70 @@ fun ProductsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(end = 4.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        item {
-                            GiftCategoryChip(
-                                label = "All",
-                                selected = activeCategoryId.isBlank(),
-                                onClick = { activeCategoryId = "" }
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            GiftCategoryExpandableChip(
+                                label = if (activeCategoryId.isBlank()) "All Categories" else categories.firstOrNull { it.categoryId == activeCategoryId }?.name ?: "All Categories",
+                                isExpanded = showCategories,
+                                onClick = { showCategories = !showCategories }
                             )
+
+                            if (showCategories) {
+                                if (activeCategoryId.isNotBlank()) {
+                                    GiftCategoryChip(
+                                        label = "Clear Filter (All)",
+                                        selected = false,
+                                        onClick = {
+                                            activeCategoryId = ""
+                                            showCategories = false
+                                        }
+                                    )
+                                }
+
+                                categories.filter { it.categoryId != activeCategoryId }.forEach { category ->
+                                    GiftCategoryChip(
+                                        label = category.name,
+                                        selected = false,
+                                        onClick = {
+                                            activeCategoryId = category.categoryId
+                                            showCategories = false
+                                        }
+                                    )
+                                }
+                            }
                         }
-                        items(categories) { category ->
-                            GiftCategoryChip(
-                                label = category.name,
-                                selected = activeCategoryId == category.categoryId,
-                                onClick = { activeCategoryId = category.categoryId }
+                    }
+
+                    if (isEmployee) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = { onNavigate(GiftHubDestinations.ADD_PRODUCT) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentOrange.copy(alpha = 0.9f)
                             )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add Product",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add New Product", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 }
@@ -252,6 +307,7 @@ fun ProductsScreen(
                             ProductGridCard(
                                 product = product,
                                 isFavorite = isFavorite,
+                                isEmployee = isEmployee,
                                 onFavoriteClick = {
                                     favoriteViewModel.toggleFavorite(userId, product)
                                 },
@@ -263,11 +319,59 @@ fun ProductsScreen(
                                         productViewModel.errorMessage =
                                             "Product ID missing for ${product.name}"
                                     }
+                                },
+                                onEdit = {
+                                    onNavigate(GiftHubDestinations.editProduct(product.idProduct))
+                                },
+                                onDelete = {
+                                    productViewModel.deleteProduct(product.idProduct)
                                 }
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GiftCategoryExpandableChip(
+    label: String,
+    isExpanded: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(AccentOrange)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isExpanded) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (!isExpanded) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
@@ -313,13 +417,16 @@ private fun GiftCategoryChip(
 private fun ProductGridCard(
     product: ProductDto,
     isFavorite: Boolean,
+    isEmployee: Boolean,
     onFavoriteClick: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(240.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(CardSurface)
             .clickable { onClick() }
@@ -441,6 +548,7 @@ private fun ProductGridCard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(12.dp)
+                .fillMaxWidth(if (isEmployee) 0.55f else 1f)
         ) {
             Text(
                 text = product.name,
@@ -458,6 +566,49 @@ private fun ProductGridCard(
                 fontWeight = FontWeight.ExtraBold,
                 color = AccentAmber
             )
+        }
+
+        if (isEmployee) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xE61A1A2E))
+                    .border(1.dp, Color(0xFF353560), RoundedCornerShape(50)),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = AccentOrange,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(16.dp)
+                        .background(Color(0xFF353560))
+                )
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color(0xFFD32F2F),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
         }
     }
 }
