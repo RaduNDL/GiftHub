@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Button
@@ -126,7 +127,7 @@ fun FavoritesScreen(
                 }
 
                 item {
-                    FavoritesHeader()
+                    FavoritesHeader(onNavigate = onNavigate)
                 }
 
                 item {
@@ -181,23 +182,39 @@ fun FavoritesScreen(
 }
 
 @Composable
-private fun FavoritesHeader() {
-    Column(
-        modifier = Modifier.fillMaxWidth()
+private fun FavoritesHeader(onNavigate: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Favorites",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Column {
+            Text(
+                text = "Favorites",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-        Spacer(modifier = Modifier.size(6.dp))
+            Spacer(modifier = Modifier.size(6.dp))
 
-        Text(
-            text = "Products and gifts you saved for later",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Text(
+                text = "Products and gifts you saved for later",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        IconButton(
+            onClick = { onNavigate(GiftHubDestinations.HOME) },
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Home,
+                contentDescription = "Home"
+            )
+        }
     }
 }
 

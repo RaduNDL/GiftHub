@@ -1,4 +1,4 @@
-package com.example.gifthub.viewmodels
+package com.example.gifthub.viewmodel
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,7 +76,8 @@ class ProfileViewModel : ViewModel() {
         )
     }
 
-    fun logout() {
+    fun logout(onLogoutComplete: () -> Unit) {
         repository.signOut()
+        onLogoutComplete()
     }
 }

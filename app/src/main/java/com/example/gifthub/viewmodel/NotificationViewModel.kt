@@ -56,7 +56,5 @@ class NotificationViewModel : ViewModel() {
         )
     }
 
-    fun clearError() {
-        errorMessage = null
-    }
+
 }

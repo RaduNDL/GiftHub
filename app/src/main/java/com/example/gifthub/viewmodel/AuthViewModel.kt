@@ -193,10 +193,6 @@ class AuthViewModel : ViewModel() {
         infoMessage = null
     }
 
-    fun clearMessage() {
-        errorMessage = null
-        infoMessage = null
-    }
 
     private fun syncFcmToken(userId: String) {
         if (userId.isBlank()) return
