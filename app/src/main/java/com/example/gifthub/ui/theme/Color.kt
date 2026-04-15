@@ -2,9 +2,11 @@ package com.example.gifthub.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val AppBackground = Color(0xFFF5F6FA)
-val AppSurface = Color(0xFFFFFFFF)
-val AppPrimary = Color(0xFF5B67F1)
-val AppPrimaryContainer = Color(0xFFDDE1FF)
-val AppText = Color(0xFF161A2D)
-val AppSubtle = Color(0xFF8C92A3)
+val VoidBackground = Color(0xFF05050A)
+val CyberSurface = Color(0xFF12121C)
+val NeonCyan = Color(0xFF00F0FF)
+val NeonPurple = Color(0xFFB900FF)
+val ElectricBlue = Color(0xFF003BFF)
+val TextHoloWhite = Color(0xFFF5F6FA)
+val TextMutedBlue = Color(0xFF8A8A9E)
+val ErrorNeonRed = Color(0xFFFF0055)
