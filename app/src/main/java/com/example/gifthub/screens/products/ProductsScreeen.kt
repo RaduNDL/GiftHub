@@ -101,10 +101,7 @@ fun ProductsScreen(
     val categories = categoryViewModel.categoriesList
     val favoriteIds = favoriteViewModel.favoriteProductIds
 
-    // Încarcă produse, categorii ȘI toate recenziile la intrarea pe ecran.
-    // IMPORTANT: folosim fetchAllReviews() (o singură interogare) în loc de
-    // a apela fetchReviews(productId) într-un loop, fiindcă acela suprascria
-    // reviewsList la fiecare produs și pierdeam datele.
+
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
         categoryViewModel.loadCategories()
@@ -117,7 +114,6 @@ fun ProductsScreen(
         }
     }
 
-    // Calculăm ratingul mediu pentru fiecare produs din LISTA GLOBALĂ allReviews.
     val productRatings = remember(products, reviewViewModel.allReviews) {
         val grouped = reviewViewModel.allReviews.groupBy { it.productId }
         products.associate { product ->
@@ -252,7 +248,7 @@ fun ProductsScreen(
                     }
                 }
 
-                // Title Section
+
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
                         Text(
@@ -270,7 +266,7 @@ fun ProductsScreen(
                             modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                         )
 
-                        // Search Bar
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -311,7 +307,7 @@ fun ProductsScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Filter Chips Row
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -319,7 +315,7 @@ fun ProductsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Category Filter
+
                             GiftCategoryExpandableChip(
                                 label = if (activeCategoryId.isBlank()) "All Categories" else categories.firstOrNull { it.categoryId == activeCategoryId }?.name ?: "All Categories",
                                 isExpanded = showCategories,
@@ -348,7 +344,7 @@ fun ProductsScreen(
                                 }
                             }
 
-                            // Rating Filter Chip
+
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(24.dp))
@@ -442,7 +438,7 @@ fun ProductsScreen(
                     }
                 }
 
-                // Error/Success Messages
+
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
                         productViewModel.errorMessage?.let { err ->
@@ -467,7 +463,6 @@ fun ProductsScreen(
                     }
                 }
 
-                // Loading/Empty State
                 if (productViewModel.isLoading && filteredProducts.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Box(

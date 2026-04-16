@@ -1,11 +1,8 @@
 package com.example.gifthub.screens.notifications
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,353 +10,250 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.example.gifthub.MainActivity
 import com.example.gifthub.R
-import com.example.gifthub.navigation.GiftHubDestinations
+import kotlin.random.Random
 
 object NotificationHelper {
-    private const val CHANNEL_ID = "gifthub_events"
-    private const val CHANNEL_NAME = "GiftHub Events"
-    private const val CHANNEL_DESCRIPTION = "Order and favorites updates"
-    private const val EXTRA_TARGET_ROUTE = "target_route"
+    const val CHANNEL_ID_GENERAL = "gifthub_general"
+    const val CHANNEL_ID_PRODUCTS = "gifthub_products"
+    const val CHANNEL_ID_ORDERS = "gifthub_orders"
+    const val CHANNEL_ID_PROMOTIONS = "gifthub_promotions"
 
-    private fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = CHANNEL_DESCRIPTION
+    fun ensureChannels(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channels = listOf(
+                NotificationChannel(CHANNEL_ID_GENERAL, "General", NotificationManager.IMPORTANCE_HIGH),
+                NotificationChannel(CHANNEL_ID_PRODUCTS, "Products", NotificationManager.IMPORTANCE_HIGH),
+                NotificationChannel(CHANNEL_ID_ORDERS, "Orders", NotificationManager.IMPORTANCE_HIGH),
+                NotificationChannel(CHANNEL_ID_PROMOTIONS, "Promotions", NotificationManager.IMPORTANCE_HIGH)
+            )
+            channels.forEach { channel ->
+                channel.description = channel.name.toString()
+                manager.createNotificationChannel(channel)
+            }
         }
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
     }
 
-    private fun hasNotificationPermission(context: Context): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(
+    fun show(
+        context: Context,
+        channelId: String,
+        title: String,
+        message: String,
+        notificationId: Int = Random.nextInt(100000, 999999)
+    ) {
+        ensureChannels(context)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    private fun show(
-        context: Context,
-        notificationId: Int,
-        title: String,
-        message: String,
-        targetRoute: String
-    ) {
-        ensureChannel(context)
-        if (!hasNotificationPermission(context)) return
-
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_TARGET_ROUTE, targetRoute)
+            if (!granted) return
         }
 
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            notificationId,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(message)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()
 
-        notifySafely(context, notificationId, notification)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun notifySafely(context: Context, notificationId: Int, notification: Notification) {
         try {
             NotificationManagerCompat.from(context).notify(notificationId, notification)
         } catch (_: SecurityException) {
         }
     }
 
-    fun notifyOrderPlaced(context: Context, orderId: String) {
-        show(
-            context,
-            ("order_placed_$orderId").hashCode(),
-            "Order placed",
-            "Your order was placed successfully.",
-            GiftHubDestinations.ORDER_HISTORY
-        )
-    }
-
-    fun notifyOrderStatusUpdated(context: Context, orderId: String, status: String) {
-        show(
-            context,
-            ("order_status_$orderId$status").hashCode(),
-            "Order updated",
-            "Order status changed to $status.",
-            GiftHubDestinations.ORDER_HISTORY
-        )
-    }
-
-    fun notifyOrderCancelled(context: Context, orderId: String) {
-        show(
-            context,
-            ("order_cancelled_$orderId").hashCode(),
-            "Order cancelled",
-            "Your order was cancelled.",
-            GiftHubDestinations.ORDER_HISTORY
-        )
-    }
-
-    fun notifyFavoriteAdded(context: Context, productName: String) {
-        show(
-            context,
-            ("favorite_added_$productName").hashCode(),
-            "Added to favorites",
-            "$productName was added to favorites.",
-            GiftHubDestinations.FAVORITES
-        )
-    }
-
-    fun notifyFavoriteRemoved(context: Context, productName: String) {
-        show(
-            context,
-            ("favorite_removed_$productName").hashCode(),
-            "Removed from favorites",
-            "$productName was removed from favorites.",
-            GiftHubDestinations.FAVORITES
-        )
-    }
-
-    fun notifyAddressAdded(context: Context) {
-        show(
-            context,
-            "address_added".hashCode(),
-            "Address added",
-            "A new address was saved.",
-            GiftHubDestinations.MANAGE_ADDRESS
-        )
-    }
-
-    fun notifyAddressUpdated(context: Context) {
-        show(
-            context,
-            "address_updated".hashCode(),
-            "Address updated",
-            "Your address was updated.",
-            GiftHubDestinations.MANAGE_ADDRESS
-        )
-    }
-
-    fun notifyAddressDeleted(context: Context) {
-        show(
-            context,
-            "address_deleted".hashCode(),
-            "Address deleted",
-            "An address was removed.",
-            GiftHubDestinations.MANAGE_ADDRESS
-        )
-    }
-
-    fun notifyRegister(context: Context, firstName: String) {
-        show(
-            context,
-            "register_$firstName".hashCode(),
-            "Welcome",
-            "Account created successfully.",
-            GiftHubDestinations.HOME
-        )
-    }
-
-    fun notifyLogin(context: Context) {
-        show(
-            context,
-            "login".hashCode(),
-            "Login successful",
-            "Welcome back.",
-            GiftHubDestinations.HOME
-        )
-    }
-
-    fun notifyPasswordResetSent(context: Context) {
-        show(
-            context,
-            "password_reset".hashCode(),
-            "Reset email sent",
-            "Check your inbox for reset instructions.",
-            GiftHubDestinations.LOGIN
-        )
-    }
-
-    fun notifyLogout(context: Context) {
-        show(
-            context,
-            "logout".hashCode(),
-            "Logged out",
-            "You have been logged out.",
-            GiftHubDestinations.LOGIN
-        )
-    }
-
-    fun notifyCartAdded(context: Context, productName: String) {
-        show(
-            context,
-            ("cart_added_$productName").hashCode(),
-            "Cart updated",
-            "$productName was added to cart.",
-            GiftHubDestinations.CART
-        )
-    }
-
-    fun notifyCartQuantityUpdated(context: Context) {
-        show(
-            context,
-            "cart_qty_updated".hashCode(),
-            "Cart updated",
-            "Product quantity was updated.",
-            GiftHubDestinations.CART
-        )
-    }
-
-    fun notifyCartRemoved(context: Context, productName: String) {
-        show(
-            context,
-            ("cart_removed_$productName").hashCode(),
-            "Cart updated",
-            "$productName was removed from cart.",
-            GiftHubDestinations.CART
-        )
-    }
-
-    fun notifyCartCleared(context: Context) {
-        show(
-            context,
-            "cart_cleared".hashCode(),
-            "Cart cleared",
-            "All items were removed from cart.",
-            GiftHubDestinations.CART
-        )
-    }
-
-    fun notifyCategoryAdded(context: Context, categoryName: String) {
-        show(
-            context,
-            ("category_added_$categoryName").hashCode(),
-            "Category added",
-            "$categoryName was added.",
-            GiftHubDestinations.PRODUCTS
-        )
-    }
-
-    fun notifyCategoryUpdated(context: Context, categoryName: String) {
-        show(
-            context,
-            ("category_updated_$categoryName").hashCode(),
-            "Category updated",
-            "$categoryName was updated.",
-            GiftHubDestinations.PRODUCTS
-        )
-    }
-
-    fun notifyCategoryDeleted(context: Context) {
-        show(
-            context,
-            "category_deleted".hashCode(),
-            "Category deleted",
-            "A category was removed.",
-            GiftHubDestinations.PRODUCTS
-        )
-    }
-
-    fun notifyPaymentAdded(context: Context) {
-        show(
-            context,
-            "payment_added".hashCode(),
-            "Payment method added",
-            "A payment method was saved.",
-            GiftHubDestinations.SAVED_PAYMENTS
-        )
-    }
-
-    fun notifyPaymentUpdated(context: Context) {
-        show(
-            context,
-            "payment_updated".hashCode(),
-            "Payment method updated",
-            "A payment method was updated.",
-            GiftHubDestinations.SAVED_PAYMENTS
-        )
-    }
-
-    fun notifyPaymentDeleted(context: Context) {
-        show(
-            context,
-            "payment_deleted".hashCode(),
-            "Payment method deleted",
-            "A payment method was removed.",
-            GiftHubDestinations.SAVED_PAYMENTS
-        )
-    }
-
     fun notifyProductAdded(context: Context, productName: String) {
-        show(
-            context,
-            ("product_added_$productName").hashCode(),
-            "Product added",
-            "$productName was added.",
-            GiftHubDestinations.PRODUCTS
-        )
+        show(context, CHANNEL_ID_PRODUCTS, "New product added", "$productName is now available")
     }
 
     fun notifyProductUpdated(context: Context, productName: String) {
-        show(
-            context,
-            ("product_updated_$productName").hashCode(),
-            "Product updated",
-            "$productName was updated.",
-            GiftHubDestinations.PRODUCTS
-        )
+        show(context, CHANNEL_ID_PRODUCTS, "Product updated", "$productName was updated")
     }
 
     fun notifyProductDeleted(context: Context, productName: String) {
-        show(
-            context,
-            ("product_deleted_$productName").hashCode(),
-            "Product deleted",
-            "$productName was deleted.",
-            GiftHubDestinations.PRODUCTS
-        )
+        show(context, CHANNEL_ID_PRODUCTS, "Product removed", "$productName was removed")
+    }
+
+    fun notifyOrderPlaced(context: Context, orderId: String) {
+        show(context, CHANNEL_ID_ORDERS, "Order placed", "Your order #$orderId was placed successfully")
+    }
+
+    fun notifyOrderStatusChanged(context: Context, orderId: String, status: String) {
+        show(context, CHANNEL_ID_ORDERS, "Order update", "Order #$orderId is now $status")
+    }
+
+    fun notifyOrderStatusUpdated(context: Context, orderId: String, status: String) {
+        show(context, CHANNEL_ID_ORDERS, "Order status updated", "Order #$orderId is now $status")
+    }
+
+    fun notifyOrderCancelled(context: Context, orderId: String) {
+        show(context, CHANNEL_ID_ORDERS, "Order cancelled", "Order #$orderId was cancelled")
+    }
+
+    fun notifyPromotion(context: Context, title: String, message: String) {
+        show(context, CHANNEL_ID_PROMOTIONS, title, message)
+    }
+
+    fun notifyAddressAdded(context: Context, addressLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Address added", "$addressLabel was added")
+    }
+
+    fun notifyAddressAdded(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Address added", "Address added successfully")
+    }
+
+    fun notifyAddressUpdated(context: Context, addressLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Address updated", "$addressLabel was updated")
+    }
+
+    fun notifyAddressUpdated(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Address updated", "Address updated successfully")
+    }
+
+    fun notifyAddressDeleted(context: Context, addressLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Address removed", "$addressLabel was removed")
+    }
+
+    fun notifyAddressDeleted(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Address removed", "Address deleted successfully")
+    }
+
+    fun notifyRegister(context: Context, firstName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Welcome", "Account created successfully, $firstName")
+    }
+
+    fun notifyRegister(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Welcome", "Account created successfully")
+    }
+
+    fun notifyLogin(context: Context, firstName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Welcome back", "Logged in successfully, $firstName")
+    }
+
+    fun notifyLogin(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Welcome back", "Logged in successfully")
+    }
+
+    fun notifyPasswordResetSent(context: Context, email: String) {
+        show(context, CHANNEL_ID_GENERAL, "Password reset", "Reset link sent to $email")
+    }
+
+    fun notifyPasswordResetSent(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Password reset", "Reset link sent successfully")
+    }
+
+    fun notifyLogout(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Logged out", "You have been logged out")
+    }
+
+    fun notifyCartAdded(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Added to cart", "$productName was added to cart")
+    }
+
+    fun notifyCartAdded(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Added to cart", "Item added to cart")
+    }
+
+    fun notifyCartQuantityUpdated(context: Context, productName: String, quantity: Int) {
+        show(context, CHANNEL_ID_GENERAL, "Cart updated", "$productName quantity is now $quantity")
+    }
+
+    fun notifyCartQuantityUpdated(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Cart updated", "Cart quantity updated")
+    }
+
+    fun notifyCartRemoved(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Removed from cart", "$productName was removed from cart")
+    }
+
+    fun notifyCartRemoved(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Removed from cart", "Item removed from cart")
+    }
+
+    fun notifyCartCleared(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Cart cleared", "All items were removed from cart")
+    }
+
+    fun notifyCategoryAdded(context: Context, categoryName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Category added", "$categoryName was added")
+    }
+
+    fun notifyCategoryAdded(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Category added", "Category added successfully")
+    }
+
+    fun notifyCategoryUpdated(context: Context, categoryName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Category updated", "$categoryName was updated")
+    }
+
+    fun notifyCategoryUpdated(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Category updated", "Category updated successfully")
+    }
+
+    fun notifyCategoryDeleted(context: Context, categoryName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Category removed", "$categoryName was removed")
+    }
+
+    fun notifyCategoryDeleted(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Category removed", "Category deleted successfully")
+    }
+
+    fun notifyFavoriteAdded(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Added to favorites", "$productName was added to favorites")
+    }
+
+    fun notifyFavoriteRemoved(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Removed from favorites", "$productName was removed from favorites")
+    }
+
+    fun notifyPaymentAdded(context: Context, paymentLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method added", "$paymentLabel was added")
+    }
+
+    fun notifyPaymentAdded(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method added", "Payment method added successfully")
+    }
+
+    fun notifyPaymentUpdated(context: Context, paymentLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method updated", "$paymentLabel was updated")
+    }
+
+    fun notifyPaymentUpdated(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method updated", "Payment method updated successfully")
+    }
+
+    fun notifyPaymentDeleted(context: Context, paymentLabel: String) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method removed", "$paymentLabel was removed")
+    }
+
+    fun notifyPaymentDeleted(context: Context) {
+        show(context, CHANNEL_ID_GENERAL, "Payment method removed", "Payment method deleted successfully")
+    }
+
+    fun notifyReviewPosted(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Review posted", "Your review for $productName was posted")
     }
 
     fun notifyReviewPosted(context: Context) {
-        show(
-            context,
-            "review_posted".hashCode(),
-            "Review posted",
-            "Your review was submitted.",
-            GiftHubDestinations.PRODUCTS
-        )
+        show(context, CHANNEL_ID_GENERAL, "Review posted", "Your review was posted")
+    }
+
+    fun notifyReviewDeleted(context: Context, productName: String) {
+        show(context, CHANNEL_ID_GENERAL, "Review deleted", "Your review for $productName was removed")
     }
 
     fun notifyReviewDeleted(context: Context) {
-        show(
-            context,
-            "review_deleted".hashCode(),
-            "Review deleted",
-            "A review was removed.",
-            GiftHubDestinations.PRODUCTS
-        )
+        show(context, CHANNEL_ID_GENERAL, "Review deleted", "Your review was removed")
     }
 
     fun extractTargetRoute(intent: Intent?): String? {
-        return intent?.getStringExtra(EXTRA_TARGET_ROUTE)
+        if (intent == null) return null
+        return intent.getStringExtra("targetRoute")
+            ?: intent.extras?.getString("targetRoute")
+            ?: intent.data?.getQueryParameter("targetRoute")
     }
 }

@@ -12,7 +12,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.gifthub.navigation.GiftHubNavGraph
 import com.example.gifthub.screens.notifications.NotificationHelper
+import com.example.gifthub.screens.notifications.PushTokenManager
 import com.example.gifthub.ui.theme.GiftHubTheme
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
 
@@ -25,7 +27,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        startupRoute = NotificationHelper.extractTargetRoute(intent)
+        FirebaseApp.initializeApp(this)
+        NotificationHelper.ensureChannels(this)
+        PushTokenManager.syncCurrentToken()
+        PushTokenManager.subscribeDefaultTopics()
+
+        startupRoute = extractTargetRoute(intent)
         requestNotificationPermissionIfNeeded()
 
         setContent {
@@ -37,7 +44,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        startupRoute = NotificationHelper.extractTargetRoute(intent)
+        startupRoute = extractTargetRoute(intent)
+    }
+
+    private fun extractTargetRoute(intent: Intent?): String? {
+        if (intent == null) return null
+        return intent.getStringExtra("targetRoute")
+            ?: intent.extras?.getString("targetRoute")
+            ?: intent.data?.getQueryParameter("targetRoute")
     }
 
     private fun requestNotificationPermissionIfNeeded() {
