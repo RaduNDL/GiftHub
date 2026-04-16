@@ -1,5 +1,7 @@
 package com.example.gifthub.screens.products
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,8 @@ import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 import com.example.gifthub.viewmodel.ReviewViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import java.util.Locale
 
 private val AccentOrange = Color(0xFFFF6B35)
@@ -108,6 +113,11 @@ fun ProductDetailsScreen(
             }
 
             else -> {
+                val voucherCode = remember(product.idProduct) { "GH-${product.idProduct.takeLast(8).uppercase()}" }
+                val qrPayload = remember(product.idProduct, voucherCode) {
+                    "GIFTHUB|PRODUCT:${product.idProduct}|VOUCHER:$voucherCode"
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -268,6 +278,13 @@ fun ProductDetailsScreen(
                                 )
                             }
 
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            ProductVoucherQrSection(
+                                voucherCode = voucherCode,
+                                qrPayload = qrPayload
+                            )
+
                             Spacer(modifier = Modifier.height(28.dp))
 
                             Box(
@@ -374,6 +391,27 @@ fun ProductDetailsScreen(
                             Spacer(modifier = Modifier.height(20.dp))
 
                             Button(
+                                onClick = { onNavigate(GiftHubDestinations.REDEEM_GIFT) },
+                                enabled = product.stock > 0,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF252545),
+                                    disabledContainerColor = Color(0xFF252545)
+                                )
+                            ) {
+                                Text(
+                                    text = "🎟 Redeem with QR",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (product.stock > 0) Color(0xFF00F0FF) else Color(0xFF606080)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
                                 onClick = {
                                     if (product.customizable) {
                                         onNavigate(GiftHubDestinations.productCustomization(product.idProduct))
@@ -457,6 +495,74 @@ fun ProductDetailsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProductVoucherQrSection(
+    voucherCode: String,
+    qrPayload: String
+) {
+    val qrBitmap by remember(qrPayload) { mutableStateOf(generateQrBitmapOrNull(qrPayload, 700)) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(CardSurface)
+            .border(1.dp, Color(0xFF2D3A60), RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Voucher QR", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(6.dp))
+        Text("Code: $voucherCode", color = TextSecondary, fontSize = 12.sp)
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (qrBitmap != null) {
+            Image(
+                bitmap = qrBitmap!!.asImageBitmap(),
+                contentDescription = "Voucher QR",
+                modifier = Modifier
+                    .size(190.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White)
+                    .padding(8.dp)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(190.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF252545)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("QR unavailable", color = Color(0xFFFF8A80), fontSize = 12.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Scanează acest QR în ecranul Redeem",
+            color = TextSecondary,
+            fontSize = 11.sp
+        )
+    }
+}
+
+private fun generateQrBitmapOrNull(content: String, size: Int): Bitmap? {
+    return try {
+        val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bmp.setPixel(x, y, if (bits[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bmp
+    } catch (_: Exception) {
+        null
     }
 }
 

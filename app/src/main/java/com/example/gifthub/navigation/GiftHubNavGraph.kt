@@ -30,6 +30,7 @@ import com.example.gifthub.screens.products.EditProductScreen
 import com.example.gifthub.screens.products.ProductDetailsScreen
 import com.example.gifthub.screens.products.ProductsScreen
 import com.example.gifthub.screens.profile.ProfileScreen
+import com.example.gifthub.ui.redeem.RedeemGiftRoute
 import com.example.gifthub.viewmodel.AuthViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.NotificationViewModel
@@ -146,6 +147,10 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
                 productViewModel = productViewModel,
                 cartViewModel = cartViewModel
             )
+        }
+
+        composable(GiftHubDestinations.REDEEM_GIFT) {
+            RedeemGiftRoute(onBack = { navController.popBackStack() })
         }
 
         composable(

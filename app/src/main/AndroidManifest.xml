@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:allowBackup="true"
@@ -23,7 +28,7 @@
             </intent-filter>
         </activity>
 
-        <!-- FCM Service -->
+
         <service
             android:name=".screens.notifications.GiftHubMessagingService"
             android:exported="false">
@@ -32,7 +37,6 @@
             </intent-filter>
         </service>
 
-        <!-- Default notification channel -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="gifthub_main" />

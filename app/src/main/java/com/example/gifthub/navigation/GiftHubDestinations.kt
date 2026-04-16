@@ -19,7 +19,7 @@ object GiftHubDestinations {
     const val NOTIFICATIONS = "notifications"
     const val MANAGE_ADDRESS = "manage_address"
     const val SAVED_PAYMENTS = "saved_payments"
-    const val PRODUCT_CUSTOMIZATION = "product_customization/{productId}"
+    const val REDEEM_GIFT = "redeem_gift"
 
     fun productsByCategory(categoryId: String, categoryName: String): String {
         return "products_by_category/$categoryId/$categoryName"
@@ -37,7 +37,5 @@ object GiftHubDestinations {
         return "product_customization/$productId"
     }
 
-    fun orderDetails(orderId: String): String {
-        return "order_details/$orderId"
-    }
+
 }
