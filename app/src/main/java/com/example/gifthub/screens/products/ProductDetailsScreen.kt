@@ -114,9 +114,7 @@ fun ProductDetailsScreen(
 
             else -> {
                 val voucherCode = remember(product.idProduct) { "GH-${product.idProduct.takeLast(8).uppercase()}" }
-                val qrPayload = remember(product.idProduct, voucherCode) {
-                    "GIFTHUB|PRODUCT:${product.idProduct}|VOUCHER:$voucherCode"
-                }
+                val qrPayload = remember(voucherCode) { voucherCode }
 
                 Column(
                     modifier = Modifier
