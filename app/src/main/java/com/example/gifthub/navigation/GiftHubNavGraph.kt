@@ -212,8 +212,8 @@ fun GiftHubNavGraph() {
         composable(
             route = GiftHubDestinations.ORDER_DETAILS,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+        ) {
+            // Route exists in graph but navigates back — order details shown via dialog
             navController.popBackStack()
         }
 
@@ -264,6 +264,9 @@ private fun handleNavigation(
     authViewModel: AuthViewModel
 ) {
     if (currentRoute == destination) return
+
+    // ✅ FIX: Guard împotriva navigării cu ID gol (ex: product_details/ fără id)
+    if (destination.endsWith("/") || destination.trimEnd().endsWith("/")) return
 
     when (destination) {
         GiftHubDestinations.LOGIN -> {
