@@ -1,4 +1,4 @@
-package com.example.gifthub.notifications
+package com.example.gifthub.screens.notifications
 
 import android.content.Context
 import androidx.work.CoroutineWorker

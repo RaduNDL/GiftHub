@@ -1,17 +1,19 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.UserDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.AuthRepository
 import com.example.gifthub.repositories.UserRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authRepository = AuthRepository()
     private val userRepository = UserRepository()
@@ -57,12 +59,12 @@ class AuthViewModel : ViewModel() {
         }
 
         if (!isValidEmail(email)) {
-            errorMessage = "Please enter a valid email address."
+            errorMessage = "Invalid email address."
             return
         }
 
         if (!isValidPassword(password)) {
-            errorMessage = "Password must be at least 8 characters with uppercase, lowercase, number and special character"
+            errorMessage = "Password must have at least 8 characters with an uppercase letter, lowercase letter, number, and special character."
             return
         }
 
@@ -76,7 +78,7 @@ class AuthViewModel : ViewModel() {
                 val firebaseUser = authRepository.getCurrentUser()
                 if (firebaseUser == null) {
                     isLoading = false
-                    errorMessage = "Registration succeeded, but user session is missing."
+                    errorMessage = "Registration successful, but session is missing."
                     return@register
                 }
 
@@ -95,6 +97,7 @@ class AuthViewModel : ViewModel() {
                         currentUserRole = "customer"
                         isLoading = false
                         isAuthenticated = true
+                        NotificationHelper.notifyRegister(getApplication(), firstName.trim())
                     },
                     onError = { error ->
                         isLoading = false
@@ -116,7 +119,7 @@ class AuthViewModel : ViewModel() {
         }
 
         if (!isValidEmail(email)) {
-            errorMessage = "Please enter a valid email address."
+            errorMessage = "Invalid email address."
             return
         }
 
@@ -130,7 +133,7 @@ class AuthViewModel : ViewModel() {
                 val firebaseUser = authRepository.getCurrentUser()
                 if (firebaseUser == null) {
                     isLoading = false
-                    errorMessage = "Login succeeded, but user session is missing."
+                    errorMessage = "Login successful, but session is missing."
                     return@login
                 }
 
@@ -141,6 +144,7 @@ class AuthViewModel : ViewModel() {
                         syncFcmToken(firebaseUser.uid)
                         isLoading = false
                         isAuthenticated = true
+                        NotificationHelper.notifyLogin(getApplication())
                     },
                     onError = { error ->
                         isLoading = false
@@ -162,7 +166,7 @@ class AuthViewModel : ViewModel() {
         }
 
         if (!isValidEmail(email)) {
-            errorMessage = "Please enter a valid email address."
+            errorMessage = "Invalid email address."
             return
         }
 
@@ -174,7 +178,8 @@ class AuthViewModel : ViewModel() {
             email = email.trim(),
             onSuccess = {
                 isLoading = false
-                infoMessage = "Password reset email sent! Check your inbox."
+                infoMessage = "Reset email sent! Check your inbox."
+                NotificationHelper.notifyPasswordResetSent(getApplication())
                 onComplete()
             },
             onError = { error ->
@@ -186,13 +191,13 @@ class AuthViewModel : ViewModel() {
     }
 
     fun logout() {
+        NotificationHelper.notifyLogout(getApplication())
         authRepository.logout()
         isAuthenticated = false
         currentUserRole = null
         errorMessage = null
         infoMessage = null
     }
-
 
     private fun syncFcmToken(userId: String) {
         if (userId.isBlank()) return

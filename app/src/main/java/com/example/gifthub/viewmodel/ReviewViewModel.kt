@@ -1,24 +1,24 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.ReviewDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
-class ReviewViewModel : ViewModel() {
+class ReviewViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseFirestore.getInstance()
 
-    // Recenziile pentru UN singur produs (folosit în ProductDetailsScreen)
     var reviewsList by mutableStateOf<List<ReviewDto>>(emptyList())
         private set
 
-    // TOATE recenziile din colecție (folosit în ProductsScreen pentru rating + filtrare)
     var allReviews by mutableStateOf<List<ReviewDto>>(emptyList())
         private set
 
@@ -47,19 +47,12 @@ class ReviewViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Preia TOATE recenziile dintr-o singură interogare Firestore.
-     * Necesar pentru calculul ratingurilor în lista de produse,
-     * astfel încât să nu se suprascrie reviewsList la fiecare produs.
-     */
     fun fetchAllReviews() {
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
             try {
-                val snapshot = db.collection("reviews")
-                    .get()
-                    .await()
+                val snapshot = db.collection("reviews").get().await()
                 allReviews = snapshot.documents
                     .mapNotNull { it.toObject(ReviewDto::class.java) }
             } catch (e: Exception) {
@@ -90,8 +83,8 @@ class ReviewViewModel : ViewModel() {
                     postDate = System.currentTimeMillis()
                 )
                 db.collection("reviews").document(reviewId).set(review).await()
+                NotificationHelper.notifyReviewPosted(getApplication())
                 fetchReviews(productId)
-                // Reîncarcă și lista globală ca rating-urile să fie la zi în ProductsScreen
                 fetchAllReviews()
             } catch (e: Exception) {
                 errorMessage = e.message
@@ -106,6 +99,7 @@ class ReviewViewModel : ViewModel() {
             isLoading = true
             try {
                 db.collection("reviews").document(reviewId).delete().await()
+                NotificationHelper.notifyReviewDeleted(getApplication())
                 fetchReviews(productId)
                 fetchAllReviews()
             } catch (e: Exception) {

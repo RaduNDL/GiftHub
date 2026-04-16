@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -35,7 +34,6 @@ import coil.compose.AsyncImage
 import com.example.gifthub.models.AddressDto
 import com.example.gifthub.models.PaymentMethodDto
 import com.example.gifthub.navigation.GiftHubDestinations
-import com.example.gifthub.notifications.GiftHubMessagingService
 import com.example.gifthub.viewmodel.AddressViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.OrderViewModel
@@ -473,13 +471,6 @@ fun CheckoutScreen(
                                     onSuccess = { orderId ->
                                         placedOrderId = orderId
                                         cartViewModel.clearCart()
-                                        // Show push notification for order confirmation
-                                        GiftHubMessagingService.showLocalNotification(
-                                            context = context,
-                                            title = "✅ Order Confirmed!",
-                                            message = "Your order #${orderId.take(8).uppercase()} has been placed successfully.",
-                                            notificationId = orderId.hashCode()
-                                        )
                                     },
                                     onError = { error ->
                                         coroutineScope.launch {

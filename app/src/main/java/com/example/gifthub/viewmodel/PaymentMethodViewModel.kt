@@ -1,13 +1,15 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.PaymentMethodDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.PaymentMethodRepository
 
-class PaymentMethodViewModel : ViewModel() {
+class PaymentMethodViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PaymentMethodRepository()
 
@@ -46,13 +48,13 @@ class PaymentMethodViewModel : ViewModel() {
 
         isLoading = true
         if (transactionId.isEmpty()) {
-            // Add new
             repository.addPaymentMethod(
                 method = method,
                 paymentStatus = paymentStatus,
                 onSuccess = {
-                    loadPaymentMethods()
                     userMessage = "Payment method added"
+                    NotificationHelper.notifyPaymentAdded(getApplication())
+                    loadPaymentMethods()
                 },
                 onError = { error ->
                     errorMessage = error
@@ -60,18 +62,18 @@ class PaymentMethodViewModel : ViewModel() {
                 }
             )
         } else {
-            // Update existing
             val updateDto = PaymentMethodDto(
                 transactionId = transactionId,
-                orderID = "", 
+                orderID = "",
                 method = method,
                 paymentStatus = paymentStatus
             )
             repository.updatePaymentMethod(
                 paymentMethod = updateDto,
                 onSuccess = {
-                    loadPaymentMethods()
                     userMessage = "Payment method updated"
+                    NotificationHelper.notifyPaymentUpdated(getApplication())
+                    loadPaymentMethods()
                 },
                 onError = { error ->
                     errorMessage = error
@@ -86,8 +88,9 @@ class PaymentMethodViewModel : ViewModel() {
         repository.deletePaymentMethod(
             transactionId = transactionId,
             onSuccess = {
-                loadPaymentMethods()
                 userMessage = "Payment method deleted"
+                NotificationHelper.notifyPaymentDeleted(getApplication())
+                loadPaymentMethods()
             },
             onError = { error ->
                 errorMessage = error

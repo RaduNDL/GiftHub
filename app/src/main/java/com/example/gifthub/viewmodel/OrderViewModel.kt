@@ -1,15 +1,17 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.OrderDto
 import com.example.gifthub.models.ShoppingCartDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.CartRepository
 import com.example.gifthub.repositories.OrderRepository
 
-class OrderViewModel : ViewModel() {
+class OrderViewModel(application: Application) : AndroidViewModel(application) {
     private val orderRepository = OrderRepository()
     private val cartRepository = CartRepository()
 
@@ -39,9 +41,11 @@ class OrderViewModel : ViewModel() {
             address = address,
             paymentMethod = paymentMethod,
             onSuccess = { orderId ->
+                NotificationHelper.notifyOrderPlaced(getApplication(), orderId)
                 cartRepository.clearCart(
                     onSuccess = {
                         isLoading = false
+                        userMessage = "Your order was placed successfully!"
                         onSuccess(orderId)
                     },
                     onError = { error ->
@@ -84,6 +88,26 @@ class OrderViewModel : ViewModel() {
                 val updatedOrders = orders.map { if (it.orderId == orderId) it.copy(status = newStatus) else it }
                 orders = updatedOrders
                 userMessage = "Order status updated"
+                NotificationHelper.notifyOrderStatusUpdated(getApplication(), orderId, newStatus)
+                isLoading = false
+            },
+            onError = { error ->
+                errorMessage = error
+                isLoading = false
+            }
+        )
+    }
+
+    fun cancelOrder(orderId: String) {
+        isLoading = true
+        errorMessage = null
+        orderRepository.cancelOrder(
+            orderId = orderId,
+            onSuccess = {
+                val updated = orders.map { if (it.orderId == orderId) it.copy(status = "Cancelled") else it }
+                orders = updated
+                userMessage = "Order has been cancelled"
+                NotificationHelper.notifyOrderCancelled(getApplication(), orderId)
                 isLoading = false
             },
             onError = { error ->

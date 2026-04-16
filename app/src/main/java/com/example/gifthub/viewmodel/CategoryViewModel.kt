@@ -1,16 +1,18 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.CategoryDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class CategoryViewModel : ViewModel() {
+class CategoryViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseFirestore.getInstance()
     private val categoriesCollection = db.collection("categories")
 
@@ -33,7 +35,7 @@ class CategoryViewModel : ViewModel() {
                     doc.toObject(CategoryDto::class.java)?.copy(categoryId = doc.id)
                 }
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to load categories"
+                errorMessage = e.message ?: "Error loading categories"
             } finally {
                 isLoading = false
             }
@@ -53,9 +55,10 @@ class CategoryViewModel : ViewModel() {
                     imageUrl = imageUrl
                 )
                 newCategoryRef.set(category).await()
+                NotificationHelper.notifyCategoryAdded(getApplication(), name)
                 loadCategories()
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to add category"
+                errorMessage = e.message ?: "Error adding category"
                 isLoading = false
             }
         }
@@ -72,9 +75,10 @@ class CategoryViewModel : ViewModel() {
                     "imageUrl" to imageUrl
                 )
                 categoriesCollection.document(categoryId).update(updates).await()
+                NotificationHelper.notifyCategoryUpdated(getApplication(), name)
                 loadCategories()
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to update category"
+                errorMessage = e.message ?: "Error updating category"
                 isLoading = false
             }
         }
@@ -86,9 +90,10 @@ class CategoryViewModel : ViewModel() {
             errorMessage = null
             try {
                 categoriesCollection.document(categoryId).delete().await()
+                NotificationHelper.notifyCategoryDeleted(getApplication())
                 loadCategories()
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Failed to delete category"
+                errorMessage = e.message ?: "Error deleting category"
                 isLoading = false
             }
         }

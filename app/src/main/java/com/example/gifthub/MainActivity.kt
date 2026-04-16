@@ -9,8 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.gifthub.navigation.GiftHubNavGraph
-import com.example.gifthub.notifications.GiftHubMessagingService
-import com.example.gifthub.notifications.NotificationScheduler
+import com.example.gifthub.screens.notifications.GiftHubMessagingService
+import com.example.gifthub.screens.notifications.NotificationScheduler
 import com.example.gifthub.ui.theme.GiftHubTheme
 
 class MainActivity : ComponentActivity() {

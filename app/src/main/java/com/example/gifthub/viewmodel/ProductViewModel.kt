@@ -1,14 +1,16 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.ProductDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.ProductRepository
 
-class ProductViewModel : ViewModel() {
+class ProductViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ProductRepository()
 
     val productsList = mutableStateListOf<ProductDto>()
@@ -35,7 +37,7 @@ class ProductViewModel : ViewModel() {
     fun loadProductById(productId: String) {
         if (productId.isBlank()) {
             selectedProduct = null
-            errorMessage = "Invalid product id"
+            errorMessage = "Invalid product ID"
             return
         }
 
@@ -70,7 +72,7 @@ class ProductViewModel : ViewModel() {
         val stock = stockStr.toIntOrNull()
 
         if (name.isBlank() || price == null || stock == null || categoryIdStr.isBlank()) {
-            errorMessage = "Please fill all fields correctly"
+            errorMessage = "Fill in all fields correctly"
             return
         }
 
@@ -95,6 +97,7 @@ class ProductViewModel : ViewModel() {
             product = product,
             onSuccess = {
                 isLoading = false
+                NotificationHelper.notifyProductAdded(getApplication(), product.name)
                 loadProducts()
                 onSuccess()
             },
@@ -119,7 +122,7 @@ class ProductViewModel : ViewModel() {
         val stock = stockStr.toIntOrNull()
 
         if (productId.isBlank() || name.isBlank() || price == null || stock == null || categoryIdStr.isBlank()) {
-            errorMessage = "Please fill all fields correctly"
+            errorMessage = "Fill in all fields correctly"
             return
         }
 
@@ -144,6 +147,7 @@ class ProductViewModel : ViewModel() {
             product = product,
             onSuccess = {
                 isLoading = false
+                NotificationHelper.notifyProductUpdated(getApplication(), product.name)
                 loadProducts()
                 onSuccess()
             },
@@ -156,7 +160,7 @@ class ProductViewModel : ViewModel() {
 
     fun deleteProduct(productId: String) {
         if (productId.isBlank()) {
-            errorMessage = "Invalid product id"
+            errorMessage = "Invalid product ID"
             return
         }
 
@@ -167,6 +171,7 @@ class ProductViewModel : ViewModel() {
             productId = productId,
             onSuccess = {
                 isLoading = false
+                NotificationHelper.notifyProductDeleted(getApplication())
                 loadProducts()
             },
             onError = { error ->

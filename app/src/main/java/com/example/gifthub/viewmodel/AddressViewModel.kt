@@ -1,13 +1,15 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.AddressDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.AddressRepository
 
-class AddressViewModel : ViewModel() {
+class AddressViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AddressRepository()
 
@@ -26,7 +28,6 @@ class AddressViewModel : ViewModel() {
     fun loadAddresses() {
         isLoading = true
         errorMessage = null
-
         repository.getAddresses(
             onSuccess = {
                 addresses = it
@@ -60,6 +61,7 @@ class AddressViewModel : ViewModel() {
                 zipcode = zipcode,
                 onSuccess = {
                     userMessage = "Address added successfully."
+                    NotificationHelper.notifyAddressAdded(getApplication())
                     loadAddresses()
                 },
                 onError = { error ->
@@ -77,6 +79,7 @@ class AddressViewModel : ViewModel() {
                 ),
                 onSuccess = {
                     userMessage = "Address updated successfully."
+                    NotificationHelper.notifyAddressUpdated(getApplication())
                     loadAddresses()
                 },
                 onError = { error ->
@@ -89,7 +92,7 @@ class AddressViewModel : ViewModel() {
 
     fun deleteAddress(addressId: String) {
         if (addressId.isBlank()) {
-            errorMessage = "Invalid address ID."
+            errorMessage = "Invalid ID."
             return
         }
 
@@ -99,7 +102,8 @@ class AddressViewModel : ViewModel() {
         repository.deleteAddress(
             addressId = addressId,
             onSuccess = {
-                userMessage = "Address deleted successfully."
+                userMessage = "Address deleted."
+                NotificationHelper.notifyAddressDeleted(getApplication())
                 loadAddresses()
             },
             onError = { error ->

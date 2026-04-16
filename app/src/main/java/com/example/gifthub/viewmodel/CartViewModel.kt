@@ -1,14 +1,16 @@
 package com.example.gifthub.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.models.ShoppingCartDto
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.CartRepository
 
-class CartViewModel : ViewModel() {
+class CartViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = CartRepository()
 
@@ -51,7 +53,8 @@ class CartViewModel : ViewModel() {
             product = product,
             quantityToAdd = quantity,
             onSuccess = {
-                refreshCart("Product added to cart")
+                NotificationHelper.notifyCartAdded(getApplication(), product.name)
+                refreshCart("${product.name} added to cart")
             },
             onError = { error ->
                 userMessage = error
@@ -62,7 +65,7 @@ class CartViewModel : ViewModel() {
 
     fun updateQuantity(cartItemId: String, newQuantity: Int) {
         if (cartItemId.isBlank()) {
-            userMessage = "Invalid cart item ID"
+            userMessage = "Invalid ID"
             return
         }
 
@@ -70,7 +73,10 @@ class CartViewModel : ViewModel() {
         repository.updateItemQuantity(
             cartItemId = cartItemId,
             newQuantity = newQuantity,
-            onSuccess = { refreshCart(null) },
+            onSuccess = {
+                NotificationHelper.notifyCartQuantityUpdated(getApplication())
+                refreshCart(null)
+            },
             onError = { error ->
                 userMessage = error
                 isLoading = false
@@ -80,14 +86,19 @@ class CartViewModel : ViewModel() {
 
     fun removeFromCart(cartItemId: String) {
         if (cartItemId.isBlank()) {
-            userMessage = "Invalid cart item ID"
+            userMessage = "Invalid ID"
             return
         }
+
+        val itemName = cart.items.firstOrNull { it.cartItemId == cartItemId }?.name ?: "Product"
 
         isLoading = true
         repository.removeFromCart(
             cartItemId = cartItemId,
-            onSuccess = { refreshCart("Product removed from cart") },
+            onSuccess = {
+                NotificationHelper.notifyCartRemoved(getApplication(), itemName)
+                refreshCart("$itemName removed from cart")
+            },
             onError = { error ->
                 userMessage = error
                 isLoading = false
@@ -100,7 +111,8 @@ class CartViewModel : ViewModel() {
         repository.clearCart(
             onSuccess = {
                 cart = emptyCart().copy(userId = cart.userId)
-                userMessage = "Cart cleared"
+                userMessage = "Cart has been cleared"
+                NotificationHelper.notifyCartCleared(getApplication())
                 isLoading = false
             },
             onError = { error ->

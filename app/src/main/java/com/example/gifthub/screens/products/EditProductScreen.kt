@@ -52,7 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.gifthub.notifications.GiftHubMessagingService
+import com.example.gifthub.screens.notifications.GiftHubMessagingService
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 

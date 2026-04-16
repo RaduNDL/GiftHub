@@ -1,5 +1,7 @@
-package com.example.gifthub.notifications
+package com.example.gifthub.screens.notifications
 
+
+import android.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -56,7 +58,7 @@ class GiftHubMessagingService : FirebaseMessagingService() {
             )
 
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_dialog_info)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -65,12 +67,11 @@ class GiftHubMessagingService : FirebaseMessagingService() {
                 .setContentIntent(pendingIntent)
                 .build()
 
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val manager = context.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(notificationId, notification)
         }
     }
 
-    // Called when a new FCM token is generated
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -80,7 +81,6 @@ class GiftHubMessagingService : FirebaseMessagingService() {
             .set(mapOf("fcmToken" to token), SetOptions.merge())
     }
 
-    // Called when a push notification arrives while app is in foreground
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
@@ -94,10 +94,8 @@ class GiftHubMessagingService : FirebaseMessagingService() {
         val targetRoute = remoteMessage.data["targetRoute"] ?: "home"
         val orderId = remoteMessage.data["orderId"] ?: ""
 
-        // Show push notification on screen
         showLocalNotification(this, title, body)
 
-        // Save to Firestore so it appears in NotificationsScreen
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
         NotificationRepository().createOrderNotification(
             userId = uid,
