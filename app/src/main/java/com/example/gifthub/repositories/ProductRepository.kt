@@ -72,10 +72,11 @@ class ProductRepository {
 
         docRef.set(productWithId)
             .addOnSuccessListener {
-                broadcastProductNotification(
+                broadcastInAppNotificationToAllUsers(
                     title = "New product added",
                     message = "${productWithId.name} is now available",
-                    type = "product_added"
+                    type = "product_added",
+                    targetRoute = GiftHubDestinations.PRODUCTS
                 )
                 onSuccess()
             }
@@ -91,10 +92,11 @@ class ProductRepository {
         collection.document(product.idProduct)
             .set(product)
             .addOnSuccessListener {
-                broadcastProductNotification(
+                broadcastInAppNotificationToAllUsers(
                     title = "Product updated",
                     message = "${product.name} was updated",
-                    type = "product_update"
+                    type = "product_update",
+                    targetRoute = GiftHubDestinations.PRODUCTS
                 )
                 onSuccess()
             }
@@ -110,29 +112,30 @@ class ProductRepository {
         collection.document(productId)
             .delete()
             .addOnSuccessListener {
-                broadcastProductNotification(
+                broadcastInAppNotificationToAllUsers(
                     title = "Product removed",
                     message = "A product was removed",
-                    type = "product_deleted"
+                    type = "product_deleted",
+                    targetRoute = GiftHubDestinations.PRODUCTS
                 )
                 onSuccess()
             }
             .addOnFailureListener { onError(it.message ?: "Failed to delete product") }
     }
 
-    private fun broadcastProductNotification(
+    private fun broadcastInAppNotificationToAllUsers(
         title: String,
         message: String,
-        type: String
+        type: String,
+        targetRoute: String
     ) {
         firestore.collection("users").get()
             .addOnSuccessListener { usersSnapshot ->
-                val users = usersSnapshot.documents
-                if (users.isEmpty()) return@addOnSuccessListener
+                if (usersSnapshot.isEmpty) return@addOnSuccessListener
 
-                val chunks = users.chunked(400)
-                chunks.forEach { chunk ->
+                usersSnapshot.documents.chunked(400).forEach { chunk ->
                     val batch: WriteBatch = firestore.batch()
+
                     chunk.forEach { userDoc ->
                         val userId = userDoc.id
                         val notifRef = firestore.collection("users")
@@ -148,12 +151,13 @@ class ProductRepository {
                             createdDate = System.currentTimeMillis(),
                             markedAsRead = false,
                             type = type,
-                            targetRoute = GiftHubDestinations.PRODUCTS,
+                            targetRoute = targetRoute,
                             orderId = ""
                         )
 
                         batch.set(notifRef, payload)
                     }
+
                     batch.commit()
                 }
             }

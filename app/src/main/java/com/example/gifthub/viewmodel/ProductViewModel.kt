@@ -7,13 +7,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.ProductDto
-import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.ProductRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 
 class ProductViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ProductRepository()
-    private val notificationRepository = NotificationRepository()
 
     val productsList = mutableStateListOf<ProductDto>()
     var selectedProduct by mutableStateOf<ProductDto?>(null)
@@ -88,7 +86,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             description = description.trim(),
             price = price,
             stock = stock,
-            categoryId = categoryIdStr,
+            categoryId = categoryIdStr.trim(),
             imageUrl = imageUrl.trim(),
             active = true,
             createdAt = now,
@@ -100,11 +98,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             onSuccess = {
                 isLoading = false
                 NotificationHelper.notifyProductAdded(getApplication(), product.name)
-                notificationRepository.createProductNotification(
-                    title = "New product added",
-                    message = "${product.name} is now available",
-                    type = "product_added"
-                )
                 loadProducts()
                 onSuccess()
             },
@@ -136,7 +129,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         isLoading = true
         errorMessage = null
 
-        val oldPrice = selectedProduct?.price
         val createdAtValue = selectedProduct?.createdAt ?: System.currentTimeMillis()
         val product = ProductDto(
             idProduct = productId,
@@ -144,7 +136,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             description = description.trim(),
             price = price,
             stock = stock,
-            categoryId = categoryIdStr,
+            categoryId = categoryIdStr.trim(),
             imageUrl = imageUrl.trim(),
             active = selectedProduct?.active ?: true,
             createdAt = createdAtValue,
@@ -156,19 +148,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             onSuccess = {
                 isLoading = false
                 NotificationHelper.notifyProductUpdated(getApplication(), product.name)
-
-                val historyMessage = if (oldPrice != null && oldPrice != product.price) {
-                    "${product.name} price changed from $${"%.2f".format(oldPrice)} to $${"%.2f".format(product.price)}"
-                } else {
-                    "${product.name} was updated"
-                }
-
-                notificationRepository.createProductNotification(
-                    title = "Product updated",
-                    message = historyMessage,
-                    type = "product_update"
-                )
-
                 loadProducts()
                 onSuccess()
             },
@@ -197,11 +176,6 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             onSuccess = {
                 isLoading = false
                 NotificationHelper.notifyProductDeleted(getApplication(), productName)
-                notificationRepository.createProductNotification(
-                    title = "Product removed",
-                    message = "$productName was removed",
-                    type = "product_deleted"
-                )
                 loadProducts()
             },
             onError = { error ->
