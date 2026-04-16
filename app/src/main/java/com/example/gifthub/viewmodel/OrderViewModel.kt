@@ -7,9 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.OrderDto
 import com.example.gifthub.models.ShoppingCartDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.CartRepository
 import com.example.gifthub.repositories.OrderRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 
 class OrderViewModel(application: Application) : AndroidViewModel(application) {
     private val orderRepository = OrderRepository()
@@ -27,6 +27,8 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
     var userMessage by mutableStateOf<String?>(null)
         private set
 
+    private var isPlacingOrder by mutableStateOf(false)
+
     fun placeOrder(
         cart: ShoppingCartDto,
         address: String,
@@ -34,28 +36,30 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
+        if (isPlacingOrder) return
+        isPlacingOrder = true
         isLoading = true
         errorMessage = null
+
         orderRepository.placeOrder(
             cart = cart,
             address = address,
             paymentMethod = paymentMethod,
             onSuccess = { orderId ->
                 NotificationHelper.notifyOrderPlaced(getApplication(), orderId)
+                userMessage = "Your order was placed successfully!"
+                isLoading = false
+                isPlacingOrder = false
+                onSuccess(orderId)
+
                 cartRepository.clearCart(
-                    onSuccess = {
-                        isLoading = false
-                        userMessage = "Your order was placed successfully!"
-                        onSuccess(orderId)
-                    },
-                    onError = { error ->
-                        isLoading = false
-                        onError(error)
-                    }
+                    onSuccess = {},
+                    onError = {}
                 )
             },
             onError = { error ->
                 isLoading = false
+                isPlacingOrder = false
                 errorMessage = error
                 onError(error)
             }
@@ -85,8 +89,7 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
             orderId = orderId,
             newStatus = newStatus,
             onSuccess = {
-                val updatedOrders = orders.map { if (it.orderId == orderId) it.copy(status = newStatus) else it }
-                orders = updatedOrders
+                orders = orders.map { if (it.orderId == orderId) it.copy(status = newStatus) else it }
                 userMessage = "Order status updated"
                 NotificationHelper.notifyOrderStatusUpdated(getApplication(), orderId, newStatus)
                 isLoading = false
@@ -104,8 +107,7 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
         orderRepository.cancelOrder(
             orderId = orderId,
             onSuccess = {
-                val updated = orders.map { if (it.orderId == orderId) it.copy(status = "Cancelled") else it }
-                orders = updated
+                orders = orders.map { if (it.orderId == orderId) it.copy(status = "Cancelled") else it }
                 userMessage = "Order has been cancelled"
                 NotificationHelper.notifyOrderCancelled(getApplication(), orderId)
                 isLoading = false

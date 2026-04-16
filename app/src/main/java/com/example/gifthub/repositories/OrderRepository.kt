@@ -46,7 +46,9 @@ class OrderRepository {
         )
 
         orderRef.set(orderDto)
-            .addOnSuccessListener { onSuccess(orderId) }
+            .addOnSuccessListener {
+                onSuccess(orderId)
+            }
             .addOnFailureListener { onError(it.message ?: "Failed to place order") }
     }
 
@@ -87,7 +89,8 @@ class OrderRepository {
             .document(orderId).get()
             .addOnSuccessListener { document ->
                 if (!document.exists()) {
-                    onError("Order not found"); return@addOnSuccessListener
+                    onError("Order not found")
+                    return@addOnSuccessListener
                 }
                 val order = runCatching { document.toObject(OrderDto::class.java) }.getOrNull()
                 if (order == null) onError("Failed to parse order")
@@ -112,7 +115,8 @@ class OrderRepository {
             .addOnSuccessListener { snapshot ->
                 val doc = snapshot.documents.firstOrNull()
                 if (doc == null) {
-                    onError("Order not found"); return@addOnSuccessListener
+                    onError("Order not found")
+                    return@addOnSuccessListener
                 }
                 doc.reference.update(
                     mapOf(
@@ -140,11 +144,13 @@ class OrderRepository {
         orderRef.get()
             .addOnSuccessListener { document ->
                 if (!document.exists()) {
-                    onError("Order not found"); return@addOnSuccessListener
+                    onError("Order not found")
+                    return@addOnSuccessListener
                 }
                 val order = document.toObject(OrderDto::class.java)
                 if (order == null) {
-                    onError("Failed to parse order"); return@addOnSuccessListener
+                    onError("Failed to parse order")
+                    return@addOnSuccessListener
                 }
                 if (!order.status.equals("Pending", ignoreCase = true)) {
                     onError("Order cannot be cancelled. Current status: ${order.status}")

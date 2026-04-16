@@ -3,6 +3,7 @@ package com.example.gifthub.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,12 +37,15 @@ import com.example.gifthub.viewmodel.OrderViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 
 @Composable
-fun GiftHubNavGraph() {
+fun GiftHubNavGraph(
+    startupRoute: String? = null
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
     val orderViewModel: OrderViewModel = viewModel()
     val productViewModel: ProductViewModel = viewModel()
+    val notificationViewModel: NotificationViewModel = viewModel()
 
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val normalizedCurrentRoute = currentBackStackEntry?.destination.normalizedRoute()
@@ -50,6 +54,19 @@ fun GiftHubNavGraph() {
         GiftHubDestinations.HOME
     } else {
         GiftHubDestinations.LOGIN
+    }
+
+    val safeStartupRoute = remember(startupRoute) {
+        when (startupRoute) {
+            GiftHubDestinations.FAVORITES -> GiftHubDestinations.FAVORITES
+            GiftHubDestinations.ORDER_HISTORY -> GiftHubDestinations.ORDER_HISTORY
+            GiftHubDestinations.NOTIFICATIONS -> GiftHubDestinations.NOTIFICATIONS
+            GiftHubDestinations.PRODUCTS -> GiftHubDestinations.PRODUCTS
+            GiftHubDestinations.CART -> GiftHubDestinations.CART
+            GiftHubDestinations.PROFILE -> GiftHubDestinations.PROFILE
+            GiftHubDestinations.HOME -> GiftHubDestinations.HOME
+            else -> null
+        }
     }
 
     NavHost(
@@ -65,6 +82,12 @@ fun GiftHubNavGraph() {
                             inclusive = true
                         }
                         launchSingleTop = true
+                    }
+
+                    safeStartupRoute?.let { route ->
+                        if (route != GiftHubDestinations.HOME) {
+                            navigateToTopLevel(navController, route)
+                        }
                     }
                 },
                 onGoToRegister = {
@@ -85,6 +108,12 @@ fun GiftHubNavGraph() {
                             inclusive = true
                         }
                         launchSingleTop = true
+                    }
+
+                    safeStartupRoute?.let { route ->
+                        if (route != GiftHubDestinations.HOME) {
+                            navigateToTopLevel(navController, route)
+                        }
                     }
                 },
                 onGoToLogin = { navController.popBackStack() },
@@ -198,7 +227,8 @@ fun GiftHubNavGraph() {
                         }
                     }
                 },
-                cartViewModel = cartViewModel
+                cartViewModel = cartViewModel,
+                orderViewModel = orderViewModel
             )
         }
 
@@ -213,7 +243,6 @@ fun GiftHubNavGraph() {
             route = GiftHubDestinations.ORDER_DETAILS,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) {
-            // Route exists in graph but navigates back — order details shown via dialog
             navController.popBackStack()
         }
 
@@ -237,7 +266,6 @@ fun GiftHubNavGraph() {
         }
 
         composable(GiftHubDestinations.NOTIFICATIONS) {
-            val notificationViewModel: NotificationViewModel = viewModel()
             NotificationsScreen(
                 currentRoute = normalizedCurrentRoute ?: GiftHubDestinations.NOTIFICATIONS,
                 onNavigate = { destination ->
@@ -263,9 +291,8 @@ private fun handleNavigation(
     destination: String,
     authViewModel: AuthViewModel
 ) {
+    if (destination.isBlank()) return
     if (currentRoute == destination) return
-
-    // ✅ FIX: Guard împotriva navigării cu ID gol (ex: product_details/ fără id)
     if (destination.endsWith("/") || destination.trimEnd().endsWith("/")) return
 
     when (destination) {
@@ -309,16 +336,12 @@ private fun NavDestination?.normalizedRoute(): String? {
     return when {
         route == GiftHubDestinations.PRODUCTS_BY_CATEGORY ||
                 route.startsWith("products_by_category/") -> GiftHubDestinations.PRODUCTS
-
         route == GiftHubDestinations.PRODUCT_DETAILS ||
                 route.startsWith("product_details/") -> GiftHubDestinations.PRODUCTS
-
         route == GiftHubDestinations.EDIT_PRODUCT ||
                 route.startsWith("edit_product/") -> GiftHubDestinations.PRODUCTS
-
         route == GiftHubDestinations.ORDER_DETAILS ||
                 route.startsWith("order_details/") -> GiftHubDestinations.ORDER_HISTORY
-
         else -> route
     }
 }

@@ -8,8 +8,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.ProductDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.FavoriteRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 import kotlinx.coroutines.launch
 
 class FavoriteViewModel(application: Application) : AndroidViewModel(application) {
@@ -34,9 +34,11 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
     fun loadFavoriteIds(userId: String) {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            try {
-                favoriteProductIds = repository.getFavoriteProductIds(userId)
-            } catch (e: Exception) {
+            runCatching {
+                repository.getFavoriteProductIds(userId)
+            }.onSuccess { ids ->
+                favoriteProductIds = ids
+            }.onFailure {
                 userMessage = "Error loading favorites"
             }
         }
@@ -45,17 +47,17 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
     fun loadFavoriteProducts(userId: String) {
         if (userId.isBlank()) return
         viewModelScope.launch {
-            try {
-                isLoading = true
-                val products = repository.getFavoriteProducts(userId)
+            isLoading = true
+            runCatching {
+                repository.getFavoriteProducts(userId)
+            }.onSuccess { products ->
                 _favoriteProducts.clear()
                 _favoriteProducts.addAll(products)
                 favoriteProductIds = products.map { it.idProduct }.toSet()
-                isLoading = false
-            } catch (e: Exception) {
+            }.onFailure {
                 userMessage = "Error loading favorites"
-                isLoading = false
             }
+            isLoading = false
         }
     }
 
@@ -74,27 +76,28 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
         }
 
         viewModelScope.launch {
-            try {
-                val result = repository.toggleFavorite(userId, product)
+            runCatching {
+                repository.toggleFavorite(userId, product)
+            }.onSuccess { result ->
                 if (result.success) {
                     if (result.isFavorite == true) {
                         favoriteProductIds = favoriteProductIds + product.idProduct
-                        if (_favoriteProducts.none { p -> p.idProduct == product.idProduct }) {
+                        if (_favoriteProducts.none { it.idProduct == product.idProduct }) {
                             _favoriteProducts.add(0, product)
                         }
                         userMessage = "${product.name} added to favorites"
                         NotificationHelper.notifyFavoriteAdded(getApplication(), product.name)
                     } else {
                         favoriteProductIds = favoriteProductIds - product.idProduct
-                        _favoriteProducts.removeAll { p -> p.idProduct == product.idProduct }
+                        _favoriteProducts.removeAll { it.idProduct == product.idProduct }
                         userMessage = "${product.name} removed from favorites"
                         NotificationHelper.notifyFavoriteRemoved(getApplication(), product.name)
                     }
                 } else {
                     userMessage = result.errorMessage ?: "Could not update favorites"
                 }
-            } catch (e: Exception) {
-                userMessage = "Error: ${e.message}"
+            }.onFailure { throwable ->
+                userMessage = "Error: ${throwable.message ?: "Unknown error"}"
             }
         }
     }
@@ -106,18 +109,19 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
         }
 
         viewModelScope.launch {
-            try {
-                val success = repository.removeFromFavorites(userId, productId)
+            runCatching {
+                repository.removeFromFavorites(userId, productId)
+            }.onSuccess { success ->
                 if (success) {
                     favoriteProductIds = favoriteProductIds - productId
-                    _favoriteProducts.removeAll { p -> p.idProduct == productId }
+                    _favoriteProducts.removeAll { it.idProduct == productId }
                     userMessage = "$productName removed from favorites"
                     NotificationHelper.notifyFavoriteRemoved(getApplication(), productName)
                 } else {
                     userMessage = "Could not remove product"
                 }
-            } catch (e: Exception) {
-                userMessage = "Error: ${e.message}"
+            }.onFailure { throwable ->
+                userMessage = "Error: ${throwable.message ?: "Unknown error"}"
             }
         }
     }

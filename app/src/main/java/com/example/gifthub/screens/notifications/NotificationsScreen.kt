@@ -159,6 +159,15 @@ fun NotificationsScreen(
                                         if (!notification.markedAsRead) {
                                             viewModel.markAsRead(notification.notificationID)
                                         }
+
+                                        val destination = when {
+                                            notification.targetRoute.isNotBlank() -> notification.targetRoute
+                                            notification.type.equals("favorite_update", true) -> GiftHubDestinations.FAVORITES
+                                            notification.type.equals("order_update", true) -> GiftHubDestinations.ORDER_HISTORY
+                                            else -> GiftHubDestinations.NOTIFICATIONS
+                                        }
+
+                                        onNavigate(destination)
                                     },
                                     onDelete = {
                                         viewModel.deleteNotification(notification.notificationID)

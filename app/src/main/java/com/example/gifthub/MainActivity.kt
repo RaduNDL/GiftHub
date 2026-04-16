@@ -1,56 +1,36 @@
 package com.example.gifthub
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.example.gifthub.navigation.GiftHubNavGraph
-import com.example.gifthub.screens.notifications.GiftHubMessagingService
-import com.example.gifthub.screens.notifications.NotificationScheduler
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.ui.theme.GiftHubTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            NotificationScheduler.schedulePeriodicNotifications(this)
-        }
-    }
+    private var startupRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-        GiftHubMessagingService.createNotificationChannel(this)
-        requestNotificationPermission()
+        startupRoute = NotificationHelper.extractTargetRoute(intent)
 
         setContent {
             GiftHubTheme {
-                GiftHubNavGraph()
+                GiftHubNavGraph(startupRoute = startupRoute)
             }
         }
     }
 
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    NotificationScheduler.schedulePeriodicNotifications(this)
-                }
-                else -> {
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        } else {
-            NotificationScheduler.schedulePeriodicNotifications(this)
-        }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        startupRoute = NotificationHelper.extractTargetRoute(intent)
     }
 }

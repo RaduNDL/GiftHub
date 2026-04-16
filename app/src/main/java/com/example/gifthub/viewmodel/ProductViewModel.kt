@@ -7,8 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.ProductDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.ProductRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 
 class ProductViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = ProductRepository()
@@ -164,6 +164,10 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
+        val productName = productsList.firstOrNull { it.idProduct == productId }?.name
+            ?: selectedProduct?.name
+            ?: "Product"
+
         isLoading = true
         errorMessage = null
 
@@ -171,7 +175,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             productId = productId,
             onSuccess = {
                 isLoading = false
-                NotificationHelper.notifyProductDeleted(getApplication())
+                NotificationHelper.notifyProductDeleted(getApplication(), productName)
                 loadProducts()
             },
             onError = { error ->
