@@ -1,7 +1,10 @@
 package com.example.gifthub.repositories
 
+import com.example.gifthub.models.NotificationDto
 import com.example.gifthub.models.ProductDto
+import com.example.gifthub.navigation.GiftHubDestinations
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.WriteBatch
 
 class ProductRepository {
     private val firestore = FirebaseFirestore.getInstance()
@@ -68,7 +71,14 @@ class ProductRepository {
         val productWithId = product.copy(idProduct = docRef.id)
 
         docRef.set(productWithId)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener {
+                broadcastProductNotification(
+                    title = "New product added",
+                    message = "${productWithId.name} is now available",
+                    type = "product_added"
+                )
+                onSuccess()
+            }
             .addOnFailureListener { onError(it.message ?: "Failed to add product") }
     }
 
@@ -80,7 +90,14 @@ class ProductRepository {
 
         collection.document(product.idProduct)
             .set(product)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener {
+                broadcastProductNotification(
+                    title = "Product updated",
+                    message = "${product.name} was updated",
+                    type = "product_update"
+                )
+                onSuccess()
+            }
             .addOnFailureListener { onError(it.message ?: "Failed to update product") }
     }
 
@@ -92,7 +109,53 @@ class ProductRepository {
 
         collection.document(productId)
             .delete()
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener {
+                broadcastProductNotification(
+                    title = "Product removed",
+                    message = "A product was removed",
+                    type = "product_deleted"
+                )
+                onSuccess()
+            }
             .addOnFailureListener { onError(it.message ?: "Failed to delete product") }
+    }
+
+    private fun broadcastProductNotification(
+        title: String,
+        message: String,
+        type: String
+    ) {
+        firestore.collection("users").get()
+            .addOnSuccessListener { usersSnapshot ->
+                val users = usersSnapshot.documents
+                if (users.isEmpty()) return@addOnSuccessListener
+
+                val chunks = users.chunked(400)
+                chunks.forEach { chunk ->
+                    val batch: WriteBatch = firestore.batch()
+                    chunk.forEach { userDoc ->
+                        val userId = userDoc.id
+                        val notifRef = firestore.collection("users")
+                            .document(userId)
+                            .collection("notifications")
+                            .document()
+
+                        val payload = NotificationDto(
+                            notificationID = notifRef.id,
+                            userId = userId,
+                            title = title,
+                            message = message,
+                            createdDate = System.currentTimeMillis(),
+                            markedAsRead = false,
+                            type = type,
+                            targetRoute = GiftHubDestinations.PRODUCTS,
+                            orderId = ""
+                        )
+
+                        batch.set(notifRef, payload)
+                    }
+                    batch.commit()
+                }
+            }
     }
 }

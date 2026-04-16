@@ -1,6 +1,7 @@
 package com.example.gifthub.screens.notifications
 
 import android.content.Context
+import com.example.gifthub.repositories.NotificationRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,11 +24,13 @@ class GiftHubMessagingService : FirebaseMessagingService() {
         val title = data["title"] ?: notification?.title ?: "GiftHub"
         val message = data["message"] ?: notification?.body ?: "You have a new notification"
         val type = data["type"] ?: "general"
+        val route = data["targetRoute"] ?: ""
+        val orderId = data["orderId"] ?: ""
         val id = (data["id"] ?: System.currentTimeMillis().toString()).hashCode()
 
         val channel = when (type.lowercase()) {
-            "product" -> NotificationHelper.CHANNEL_ID_PRODUCTS
-            "order" -> NotificationHelper.CHANNEL_ID_ORDERS
+            "product", "product_update", "review_update" -> NotificationHelper.CHANNEL_ID_PRODUCTS
+            "order", "order_update" -> NotificationHelper.CHANNEL_ID_ORDERS
             "promotion" -> NotificationHelper.CHANNEL_ID_PROMOTIONS
             else -> NotificationHelper.CHANNEL_ID_GENERAL
         }
@@ -37,7 +40,35 @@ class GiftHubMessagingService : FirebaseMessagingService() {
             channelId = channel,
             title = title,
             message = message,
+            targetRoute = route,
             notificationId = id
+        )
+
+        savePushToNotificationHistory(
+            title = title,
+            message = message,
+            type = type,
+            targetRoute = route,
+            orderId = orderId
+        )
+    }
+
+    private fun savePushToNotificationHistory(
+        title: String,
+        message: String,
+        type: String,
+        targetRoute: String,
+        orderId: String
+    ) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        NotificationRepository().createNotification(
+            userId = uid,
+            title = title,
+            message = message,
+            type = type,
+            targetRoute = targetRoute,
+            orderId = orderId
         )
     }
 

@@ -8,12 +8,14 @@ import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.OrderDto
 import com.example.gifthub.models.ShoppingCartDto
 import com.example.gifthub.repositories.CartRepository
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.OrderRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 
 class OrderViewModel(application: Application) : AndroidViewModel(application) {
     private val orderRepository = OrderRepository()
     private val cartRepository = CartRepository()
+    private val notificationRepository = NotificationRepository()
 
     var orders by mutableStateOf<List<OrderDto>>(emptyList())
         private set
@@ -47,6 +49,12 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
             paymentMethod = paymentMethod,
             onSuccess = { orderId ->
                 NotificationHelper.notifyOrderPlaced(getApplication(), orderId)
+                notificationRepository.createOrderNotification(
+                    title = "Order placed",
+                    message = "Your order #$orderId was placed successfully",
+                    orderId = orderId,
+                    type = "order_placed"
+                )
                 userMessage = "Your order was placed successfully!"
                 isLoading = false
                 isPlacingOrder = false
@@ -92,6 +100,12 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                 orders = orders.map { if (it.orderId == orderId) it.copy(status = newStatus) else it }
                 userMessage = "Order status updated"
                 NotificationHelper.notifyOrderStatusUpdated(getApplication(), orderId, newStatus)
+                notificationRepository.createOrderNotification(
+                    title = "Order status updated",
+                    message = "Order #$orderId is now $newStatus",
+                    orderId = orderId,
+                    type = "order_status"
+                )
                 isLoading = false
             },
             onError = { error ->
@@ -110,6 +124,12 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                 orders = orders.map { if (it.orderId == orderId) it.copy(status = "Cancelled") else it }
                 userMessage = "Order has been cancelled"
                 NotificationHelper.notifyOrderCancelled(getApplication(), orderId)
+                notificationRepository.createOrderNotification(
+                    title = "Order cancelled",
+                    message = "Order #$orderId was cancelled",
+                    orderId = orderId,
+                    type = "order_cancelled"
+                )
                 isLoading = false
             },
             onError = { error ->

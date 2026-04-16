@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.ReviewDto
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -15,6 +16,7 @@ import java.util.UUID
 
 class ReviewViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseFirestore.getInstance()
+    private val notificationRepository = NotificationRepository()
 
     var reviewsList by mutableStateOf<List<ReviewDto>>(emptyList())
         private set
@@ -84,6 +86,11 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
                 )
                 db.collection("reviews").document(reviewId).set(review).await()
                 NotificationHelper.notifyReviewPosted(getApplication())
+                notificationRepository.createProductNotification(
+                    title = "Review posted",
+                    message = "Your review was posted",
+                    type = "review_added"
+                )
                 fetchReviews(productId)
                 fetchAllReviews()
             } catch (e: Exception) {
@@ -100,6 +107,11 @@ class ReviewViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 db.collection("reviews").document(reviewId).delete().await()
                 NotificationHelper.notifyReviewDeleted(getApplication())
+                notificationRepository.createProductNotification(
+                    title = "Review deleted",
+                    message = "Your review was removed",
+                    type = "review_deleted"
+                )
                 fetchReviews(productId)
                 fetchAllReviews()
             } catch (e: Exception) {

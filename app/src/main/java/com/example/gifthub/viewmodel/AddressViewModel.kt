@@ -6,12 +6,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.AddressDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.AddressRepository
+import com.example.gifthub.repositories.NotificationRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 
 class AddressViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AddressRepository()
+    private val notificationRepository = NotificationRepository()
 
     var addresses by mutableStateOf<List<AddressDto>>(emptyList())
         private set
@@ -54,6 +56,8 @@ class AddressViewModel(application: Application) : AndroidViewModel(application)
         isLoading = true
         errorMessage = null
 
+        val label = "${street.trim()}, ${city.trim()}"
+
         if (idAddress.isBlank()) {
             repository.addAddress(
                 street = street,
@@ -61,7 +65,12 @@ class AddressViewModel(application: Application) : AndroidViewModel(application)
                 zipcode = zipcode,
                 onSuccess = {
                     userMessage = "Address added successfully."
-                    NotificationHelper.notifyAddressAdded(getApplication())
+                    NotificationHelper.notifyAddressAdded(getApplication(), label)
+                    notificationRepository.createAddressNotification(
+                        title = "Address added",
+                        message = "$label was added",
+                        type = "address_added"
+                    )
                     loadAddresses()
                 },
                 onError = { error ->
@@ -79,7 +88,12 @@ class AddressViewModel(application: Application) : AndroidViewModel(application)
                 ),
                 onSuccess = {
                     userMessage = "Address updated successfully."
-                    NotificationHelper.notifyAddressUpdated(getApplication())
+                    NotificationHelper.notifyAddressUpdated(getApplication(), label)
+                    notificationRepository.createAddressNotification(
+                        title = "Address updated",
+                        message = "$label was updated",
+                        type = "address_update"
+                    )
                     loadAddresses()
                 },
                 onError = { error ->
@@ -96,6 +110,8 @@ class AddressViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
+        val label = addresses.firstOrNull { it.idAddress == addressId }?.let { "${it.street}, ${it.city}" } ?: "Address"
+
         isLoading = true
         errorMessage = null
 
@@ -103,7 +119,12 @@ class AddressViewModel(application: Application) : AndroidViewModel(application)
             addressId = addressId,
             onSuccess = {
                 userMessage = "Address deleted."
-                NotificationHelper.notifyAddressDeleted(getApplication())
+                NotificationHelper.notifyAddressDeleted(getApplication(), label)
+                notificationRepository.createAddressNotification(
+                    title = "Address deleted",
+                    message = "$label was removed",
+                    type = "address_deleted"
+                )
                 loadAddresses()
             },
             onError = { error ->

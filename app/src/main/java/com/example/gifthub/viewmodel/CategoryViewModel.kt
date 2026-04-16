@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.CategoryDto
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -15,6 +16,7 @@ import kotlinx.coroutines.tasks.await
 class CategoryViewModel(application: Application) : AndroidViewModel(application) {
     private val db = FirebaseFirestore.getInstance()
     private val categoriesCollection = db.collection("categories")
+    private val notificationRepository = NotificationRepository()
 
     var categoriesList by mutableStateOf<List<CategoryDto>>(emptyList())
         private set
@@ -56,6 +58,11 @@ class CategoryViewModel(application: Application) : AndroidViewModel(application
                 )
                 newCategoryRef.set(category).await()
                 NotificationHelper.notifyCategoryAdded(getApplication(), name)
+                notificationRepository.createProductNotification(
+                    title = "Category added",
+                    message = "$name was added",
+                    type = "product_update"
+                )
                 loadCategories()
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Error adding category"
@@ -76,6 +83,11 @@ class CategoryViewModel(application: Application) : AndroidViewModel(application
                 )
                 categoriesCollection.document(categoryId).update(updates).await()
                 NotificationHelper.notifyCategoryUpdated(getApplication(), name)
+                notificationRepository.createProductNotification(
+                    title = "Category updated",
+                    message = "$name was updated",
+                    type = "product_update"
+                )
                 loadCategories()
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Error updating category"
@@ -89,8 +101,14 @@ class CategoryViewModel(application: Application) : AndroidViewModel(application
             isLoading = true
             errorMessage = null
             try {
+                val deletedName = categoriesList.firstOrNull { it.categoryId == categoryId }?.name ?: "Category"
                 categoriesCollection.document(categoryId).delete().await()
-                NotificationHelper.notifyCategoryDeleted(getApplication())
+                NotificationHelper.notifyCategoryDeleted(getApplication(), deletedName)
+                notificationRepository.createProductNotification(
+                    title = "Category deleted",
+                    message = "$deletedName was removed",
+                    type = "product_update"
+                )
                 loadCategories()
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Error deleting category"

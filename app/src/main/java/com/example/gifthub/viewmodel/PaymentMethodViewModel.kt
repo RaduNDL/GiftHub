@@ -6,12 +6,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.PaymentMethodDto
-import com.example.gifthub.screens.notifications.NotificationHelper
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.PaymentMethodRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 
 class PaymentMethodViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = PaymentMethodRepository()
+    private val notificationRepository = NotificationRepository()
 
     var paymentMethods by mutableStateOf<List<PaymentMethodDto>>(emptyList())
         private set
@@ -53,7 +55,12 @@ class PaymentMethodViewModel(application: Application) : AndroidViewModel(applic
                 paymentStatus = paymentStatus,
                 onSuccess = {
                     userMessage = "Payment method added"
-                    NotificationHelper.notifyPaymentAdded(getApplication())
+                    NotificationHelper.notifyPaymentAdded(getApplication(), method)
+                    notificationRepository.createPaymentNotification(
+                        title = "Payment method added",
+                        message = "$method was added",
+                        type = "payment_added"
+                    )
                     loadPaymentMethods()
                 },
                 onError = { error ->
@@ -72,7 +79,12 @@ class PaymentMethodViewModel(application: Application) : AndroidViewModel(applic
                 paymentMethod = updateDto,
                 onSuccess = {
                     userMessage = "Payment method updated"
-                    NotificationHelper.notifyPaymentUpdated(getApplication())
+                    NotificationHelper.notifyPaymentUpdated(getApplication(), method)
+                    notificationRepository.createPaymentNotification(
+                        title = "Payment method updated",
+                        message = "$method was updated",
+                        type = "payment_update"
+                    )
                     loadPaymentMethods()
                 },
                 onError = { error ->
@@ -85,11 +97,17 @@ class PaymentMethodViewModel(application: Application) : AndroidViewModel(applic
 
     fun deletePaymentMethod(transactionId: String) {
         isLoading = true
+        val label = paymentMethods.firstOrNull { it.transactionId == transactionId }?.method ?: "Payment method"
         repository.deletePaymentMethod(
             transactionId = transactionId,
             onSuccess = {
                 userMessage = "Payment method deleted"
-                NotificationHelper.notifyPaymentDeleted(getApplication())
+                NotificationHelper.notifyPaymentDeleted(getApplication(), label)
+                notificationRepository.createPaymentNotification(
+                    title = "Payment method deleted",
+                    message = "$label was removed",
+                    type = "payment_deleted"
+                )
                 loadPaymentMethods()
             },
             onError = { error ->

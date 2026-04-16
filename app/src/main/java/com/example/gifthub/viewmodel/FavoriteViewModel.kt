@@ -9,11 +9,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.repositories.FavoriteRepository
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 import kotlinx.coroutines.launch
 
 class FavoriteViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FavoriteRepository()
+    private val notificationRepository = NotificationRepository()
 
     var favoriteProductIds by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -87,11 +89,21 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
                         }
                         userMessage = "${product.name} added to favorites"
                         NotificationHelper.notifyFavoriteAdded(getApplication(), product.name)
+                        notificationRepository.createFavoriteNotification(
+                            title = "Added to favorites",
+                            message = "${product.name} was added to favorites",
+                            type = "favorite_added"
+                        )
                     } else {
                         favoriteProductIds = favoriteProductIds - product.idProduct
                         _favoriteProducts.removeAll { it.idProduct == product.idProduct }
                         userMessage = "${product.name} removed from favorites"
                         NotificationHelper.notifyFavoriteRemoved(getApplication(), product.name)
+                        notificationRepository.createFavoriteNotification(
+                            title = "Removed from favorites",
+                            message = "${product.name} was removed from favorites",
+                            type = "favorite_removed"
+                        )
                     }
                 } else {
                     userMessage = result.errorMessage ?: "Could not update favorites"
@@ -117,6 +129,11 @@ class FavoriteViewModel(application: Application) : AndroidViewModel(application
                     _favoriteProducts.removeAll { it.idProduct == productId }
                     userMessage = "$productName removed from favorites"
                     NotificationHelper.notifyFavoriteRemoved(getApplication(), productName)
+                    notificationRepository.createFavoriteNotification(
+                        title = "Removed from favorites",
+                        message = "$productName was removed from favorites",
+                        type = "favorite_removed"
+                    )
                 } else {
                     userMessage = "Could not remove product"
                 }

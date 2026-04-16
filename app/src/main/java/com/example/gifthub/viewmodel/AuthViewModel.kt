@@ -6,9 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.UserDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.AuthRepository
+import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.UserRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
@@ -17,6 +18,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authRepository = AuthRepository()
     private val userRepository = UserRepository()
+    private val notificationRepository = NotificationRepository()
 
     var isLoading by mutableStateOf(false)
         private set
@@ -98,6 +100,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading = false
                         isAuthenticated = true
                         NotificationHelper.notifyRegister(getApplication(), firstName.trim())
+                        notificationRepository.createNotification(
+                            title = "Welcome",
+                            message = "Account created successfully, ${firstName.trim()}",
+                            type = "auth_register"
+                        )
                     },
                     onError = { error ->
                         isLoading = false
@@ -145,6 +152,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         isLoading = false
                         isAuthenticated = true
                         NotificationHelper.notifyLogin(getApplication())
+                        notificationRepository.createNotification(
+                            title = "Welcome back",
+                            message = "Logged in successfully",
+                            type = "auth_login"
+                        )
                     },
                     onError = { error ->
                         isLoading = false
@@ -180,6 +192,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 isLoading = false
                 infoMessage = "Reset email sent! Check your inbox."
                 NotificationHelper.notifyPasswordResetSent(getApplication())
+                notificationRepository.createNotification(
+                    title = "Password reset",
+                    message = "Reset link sent to ${email.trim()}",
+                    type = "auth_update"
+                )
                 onComplete()
             },
             onError = { error ->
@@ -192,6 +209,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         NotificationHelper.notifyLogout(getApplication())
+        notificationRepository.createNotification(
+            title = "Logged out",
+            message = "You have been logged out",
+            type = "auth_logout"
+        )
         authRepository.logout()
         isAuthenticated = false
         currentUserRole = null

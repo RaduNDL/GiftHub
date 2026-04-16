@@ -7,12 +7,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.ProductDto
 import com.example.gifthub.models.ShoppingCartDto
-import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.repositories.CartRepository
+import com.example.gifthub.repositories.NotificationRepository
+import com.example.gifthub.screens.notifications.NotificationHelper
 
 class CartViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = CartRepository()
+    private val notificationRepository = NotificationRepository()
 
     var cart by mutableStateOf(emptyCart())
         private set
@@ -54,6 +56,11 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             quantityToAdd = quantity,
             onSuccess = {
                 NotificationHelper.notifyCartAdded(getApplication(), product.name)
+                notificationRepository.createCartNotification(
+                    title = "Added to cart",
+                    message = "${product.name} was added to cart",
+                    type = "cart_added"
+                )
                 refreshCart("${product.name} added to cart")
             },
             onError = { error ->
@@ -75,6 +82,11 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             newQuantity = newQuantity,
             onSuccess = {
                 NotificationHelper.notifyCartQuantityUpdated(getApplication())
+                notificationRepository.createCartNotification(
+                    title = "Cart updated",
+                    message = "Cart quantity updated",
+                    type = "cart_update"
+                )
                 refreshCart(null)
             },
             onError = { error ->
@@ -97,6 +109,11 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
             cartItemId = cartItemId,
             onSuccess = {
                 NotificationHelper.notifyCartRemoved(getApplication(), itemName)
+                notificationRepository.createCartNotification(
+                    title = "Removed from cart",
+                    message = "$itemName was removed from cart",
+                    type = "cart_removed"
+                )
                 refreshCart("$itemName removed from cart")
             },
             onError = { error ->
@@ -113,6 +130,11 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
                 cart = emptyCart().copy(userId = cart.userId)
                 userMessage = "Cart has been cleared"
                 NotificationHelper.notifyCartCleared(getApplication())
+                notificationRepository.createCartNotification(
+                    title = "Cart cleared",
+                    message = "All items were removed from cart",
+                    type = "cart_update"
+                )
                 isLoading = false
             },
             onError = { error ->
