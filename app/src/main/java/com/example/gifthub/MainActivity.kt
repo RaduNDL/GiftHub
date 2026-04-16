@@ -15,10 +15,13 @@ import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.screens.notifications.PushTokenManager
 import com.example.gifthub.ui.theme.GiftHubTheme
 import com.google.firebase.FirebaseApp
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class MainActivity : ComponentActivity() {
 
-    private var startupRoute: String? = null
+    private val _notificationRouteFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val notificationRouteFlow = _notificationRouteFlow.asSharedFlow()
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -31,27 +34,25 @@ class MainActivity : ComponentActivity() {
         NotificationHelper.ensureChannels(this)
         PushTokenManager.syncCurrentToken()
         PushTokenManager.subscribeDefaultTopics()
-
-        startupRoute = extractTargetRoute(intent)
         requestNotificationPermissionIfNeeded()
+
+        NotificationHelper.extractTargetRoute(intent)?.let {
+            _notificationRouteFlow.tryEmit(it)
+        }
 
         setContent {
             GiftHubTheme {
-                GiftHubNavGraph(startupRoute = startupRoute)
+                GiftHubNavGraph(notificationRouteFlow = notificationRouteFlow)
             }
         }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        startupRoute = extractTargetRoute(intent)
-    }
-
-    private fun extractTargetRoute(intent: Intent?): String? {
-        if (intent == null) return null
-        return intent.getStringExtra("targetRoute")
-            ?: intent.extras?.getString("targetRoute")
-            ?: intent.data?.getQueryParameter("targetRoute")
+        setIntent(intent)
+        NotificationHelper.extractTargetRoute(intent)?.let {
+            _notificationRouteFlow.tryEmit(it)
+        }
     }
 
     private fun requestNotificationPermissionIfNeeded() {

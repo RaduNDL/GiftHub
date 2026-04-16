@@ -3,7 +3,7 @@ package com.example.gifthub.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -35,8 +35,11 @@ import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.NotificationViewModel
 import com.example.gifthub.viewmodel.OrderViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
+
 @Composable
-fun GiftHubNavGraph(startupRoute: String? = null) {
+fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     val cartViewModel: CartViewModel = viewModel()
@@ -47,22 +50,14 @@ fun GiftHubNavGraph(startupRoute: String? = null) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val normalizedCurrentRoute = currentBackStackEntry?.destination.normalizedRoute()
 
-    val startDestination = if (authViewModel.isAuthenticated) {
-        GiftHubDestinations.HOME
-    } else {
-        GiftHubDestinations.LOGIN
-    }
+    val startDestination = if (authViewModel.isAuthenticated) GiftHubDestinations.HOME else GiftHubDestinations.LOGIN
 
-    val safeStartupRoute = remember(startupRoute) {
-        when (startupRoute) {
-            GiftHubDestinations.FAVORITES,
-            GiftHubDestinations.ORDER_HISTORY,
-            GiftHubDestinations.NOTIFICATIONS,
-            GiftHubDestinations.PRODUCTS,
-            GiftHubDestinations.CART,
-            GiftHubDestinations.PROFILE,
-            GiftHubDestinations.HOME -> startupRoute
-            else -> null
+    val scope = rememberCoroutineScope()
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        notificationRouteFlow.collect { route ->
+            if (authViewModel.isAuthenticated) {
+                navigateToTopLevel(navController, route)
+            }
         }
     }
 
@@ -75,7 +70,6 @@ fun GiftHubNavGraph(startupRoute: String? = null) {
                         popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                         launchSingleTop = true
                     }
-                    safeStartupRoute?.let { if (it != GiftHubDestinations.HOME) navigateToTopLevel(navController, it) }
                 },
                 onGoToRegister = {
                     navController.navigate(GiftHubDestinations.REGISTER) { launchSingleTop = true }
@@ -92,7 +86,6 @@ fun GiftHubNavGraph(startupRoute: String? = null) {
                         popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                         launchSingleTop = true
                     }
-                    safeStartupRoute?.let { if (it != GiftHubDestinations.HOME) navigateToTopLevel(navController, it) }
                 },
                 onGoToLogin = { navController.popBackStack() },
                 viewModel = authViewModel
@@ -255,7 +248,9 @@ private fun handleNavigation(
         GiftHubDestinations.FAVORITES,
         GiftHubDestinations.PROFILE,
         GiftHubDestinations.NOTIFICATIONS,
-        GiftHubDestinations.ORDER_HISTORY -> navigateToTopLevel(navController, destination)
+        GiftHubDestinations.ORDER_HISTORY,
+        GiftHubDestinations.MANAGE_ADDRESS,
+        GiftHubDestinations.SAVED_PAYMENTS -> navigateToTopLevel(navController, destination)
         else -> navController.navigate(destination) { launchSingleTop = true }
     }
 }
