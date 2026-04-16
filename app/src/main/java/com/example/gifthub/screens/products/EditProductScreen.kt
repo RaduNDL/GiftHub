@@ -47,11 +47,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gifthub.notifications.GiftHubMessagingService
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 
@@ -63,6 +64,8 @@ fun EditProductScreen(
     viewModel: ProductViewModel = viewModel(),
     categoryViewModel: CategoryViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf("") }
@@ -318,6 +321,10 @@ fun EditProductScreen(
                     // Update Button
                     Button(
                         onClick = {
+                            val oldPrice = product?.price
+                            val newPrice = priceStr.toDoubleOrNull()
+                            val productName = name
+
                             viewModel.updateProduct(
                                 productId = productId,
                                 name = name,
@@ -327,6 +334,17 @@ fun EditProductScreen(
                                 categoryIdStr = selectedCategoryId,
                                 imageUrl = imageUrl
                             ) {
+                                // Show notification if price changed
+                                if (oldPrice != null && newPrice != null && oldPrice != newPrice) {
+                                    val direction = if (newPrice < oldPrice) "dropped" else "updated"
+                                    val emoji = if (newPrice < oldPrice) "🔥" else "📦"
+                                    GiftHubMessagingService.showLocalNotification(
+                                        context = context,
+                                        title = "$emoji Price $direction!",
+                                        message = "\"$productName\" is now $${"%.2f".format(newPrice)} (was $${"%.2f".format(oldPrice)})",
+                                        notificationId = productId.hashCode()
+                                    )
+                                }
                                 onBack()
                             }
                         },
@@ -346,9 +364,18 @@ fun EditProductScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text("Updating...", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                            Text(
+                                "Updating...",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
                         } else {
-                            Text("Update Product", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Update Product",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }

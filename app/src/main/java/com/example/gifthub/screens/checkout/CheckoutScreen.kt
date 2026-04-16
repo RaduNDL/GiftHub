@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,6 +35,7 @@ import coil.compose.AsyncImage
 import com.example.gifthub.models.AddressDto
 import com.example.gifthub.models.PaymentMethodDto
 import com.example.gifthub.navigation.GiftHubDestinations
+import com.example.gifthub.notifications.GiftHubMessagingService
 import com.example.gifthub.viewmodel.AddressViewModel
 import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.OrderViewModel
@@ -50,6 +52,7 @@ fun CheckoutScreen(
     addressViewModel: AddressViewModel = viewModel(),
     paymentMethodViewModel: PaymentMethodViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val cart = cartViewModel.cart
     val snackbarHostState = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -106,7 +109,6 @@ fun CheckoutScreen(
                 paymentMethodViewModel.loadPaymentMethods()
             }
         }
-
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -226,7 +228,10 @@ fun CheckoutScreen(
                             Box(
                                 modifier = Modifier
                                     .size(76.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer,
+                                        CircleShape
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -267,11 +272,8 @@ fun CheckoutScreen(
                 ) {
                     HeroCheckoutCard(total = cart.temporaryValue)
 
-                    // ✅ NEW: Product Preview Section
                     SectionTitle("Your Items")
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         cart.items.forEach { item ->
                             ProductPreviewCard(item)
                         }
@@ -317,7 +319,9 @@ fun CheckoutScreen(
                             onValueChange = { manualAddress = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Enter delivery address") },
-                            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+                            leadingIcon = {
+                                Icon(Icons.Default.LocationOn, contentDescription = null)
+                            },
                             shape = RoundedCornerShape(16.dp),
                             minLines = 3
                         )
@@ -363,7 +367,9 @@ fun CheckoutScreen(
                             onValueChange = { manualPaymentMethod = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Payment method") },
-                            leadingIcon = { Icon(Icons.Default.Payments, contentDescription = null) },
+                            leadingIcon = {
+                                Icon(Icons.Default.Payments, contentDescription = null)
+                            },
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true
                         )
@@ -373,7 +379,9 @@ fun CheckoutScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             cart.items.forEach { item ->
@@ -399,11 +407,7 @@ fun CheckoutScreen(
                                         if (item.lineExtraPrice > 0.0) {
                                             Text(
                                                 text = "+ $${
-                                                    String.format(
-                                                        Locale.US,
-                                                        "%.2f",
-                                                        item.lineExtraPrice
-                                                    )
+                                                    String.format(Locale.US, "%.2f", item.lineExtraPrice)
                                                 } customization",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.primary
@@ -419,13 +423,7 @@ fun CheckoutScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
 
                                     Text(
-                                        text = "$${
-                                            String.format(
-                                                Locale.US,
-                                                "%.2f",
-                                                item.lineTotalPrice
-                                            )
-                                        }",
+                                        text = "$${String.format(Locale.US, "%.2f", item.lineTotalPrice)}",
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -475,6 +473,13 @@ fun CheckoutScreen(
                                     onSuccess = { orderId ->
                                         placedOrderId = orderId
                                         cartViewModel.clearCart()
+                                        // Show push notification for order confirmation
+                                        GiftHubMessagingService.showLocalNotification(
+                                            context = context,
+                                            title = "✅ Order Confirmed!",
+                                            message = "Your order #${orderId.take(8).uppercase()} has been placed successfully.",
+                                            notificationId = orderId.hashCode()
+                                        )
                                     },
                                     onError = { error ->
                                         coroutineScope.launch {
@@ -501,7 +506,11 @@ fun CheckoutScreen(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text("Placing...")
                             } else {
-                                Text("Place Order", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Place Order",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -513,7 +522,6 @@ fun CheckoutScreen(
     }
 }
 
-// ✅ NEW: Product Preview Card with Custom Image
 @Composable
 private fun ProductPreviewCard(item: com.example.gifthub.models.CartItemDto) {
     Card(
@@ -527,7 +535,6 @@ private fun ProductPreviewCard(item: com.example.gifthub.models.CartItemDto) {
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Product Preview Image
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -555,7 +562,6 @@ private fun ProductPreviewCard(item: com.example.gifthub.models.CartItemDto) {
                 }
             }
 
-            // Product Details
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -593,7 +599,6 @@ private fun ProductPreviewCard(item: com.example.gifthub.models.CartItemDto) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
                     Text(
                         text = "$${String.format(Locale.US, "%.2f", item.lineTotalPrice)}",
                         style = MaterialTheme.typography.titleSmall,
@@ -611,7 +616,9 @@ private fun HeroCheckoutCard(total: Double) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -684,7 +691,10 @@ private fun AddressSelectionCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 Icons.Default.LocationOn,
                 contentDescription = null,
@@ -732,7 +742,10 @@ private fun PaymentSelectionCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 Icons.Default.CreditCard,
                 contentDescription = null,
