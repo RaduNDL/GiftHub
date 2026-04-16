@@ -81,7 +81,7 @@ fun NotificationsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Notifications",
+                        text = "Notification History",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -150,7 +150,7 @@ fun NotificationsScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(
-                                viewModel.notifications,
+                                items = viewModel.notifications,
                                 key = { it.notificationID }
                             ) { notification ->
                                 NotificationCard(
@@ -160,13 +160,7 @@ fun NotificationsScreen(
                                             viewModel.markAsRead(notification.notificationID)
                                         }
 
-                                        val destination = when {
-                                            notification.targetRoute.isNotBlank() -> notification.targetRoute
-                                            notification.type.equals("favorite_update", true) -> GiftHubDestinations.FAVORITES
-                                            notification.type.equals("order_update", true) -> GiftHubDestinations.ORDER_HISTORY
-                                            else -> GiftHubDestinations.NOTIFICATIONS
-                                        }
-
+                                        val destination = resolveNotificationDestination(notification)
                                         onNavigate(destination)
                                     },
                                     onDelete = {
@@ -179,6 +173,53 @@ fun NotificationsScreen(
                 }
             }
         }
+    }
+}
+
+private fun resolveNotificationDestination(notification: NotificationDto): String {
+    val route = notification.targetRoute.trim()
+    if (route.isNotEmpty()) {
+        return when (route) {
+            GiftHubDestinations.LOGIN,
+            GiftHubDestinations.REGISTER,
+            GiftHubDestinations.HOME,
+            GiftHubDestinations.PRODUCTS,
+            GiftHubDestinations.CART,
+            GiftHubDestinations.CHECKOUT,
+            GiftHubDestinations.ORDER_HISTORY,
+            GiftHubDestinations.FAVORITES,
+            GiftHubDestinations.PROFILE,
+            GiftHubDestinations.NOTIFICATIONS,
+            GiftHubDestinations.MANAGE_ADDRESS,
+            GiftHubDestinations.SAVED_PAYMENTS,
+            GiftHubDestinations.ADD_PRODUCT,
+            GiftHubDestinations.MANAGE_CATEGORIES -> route
+            else -> {
+                when {
+                    route.startsWith("product_details/") -> route
+                    route.startsWith("edit_product/") -> route
+                    route.startsWith("products_by_category/") -> route
+                    route.startsWith("order_details/") -> route
+                    route.startsWith("product_customization/") -> route
+                    else -> fallbackDestinationByType(notification.type)
+                }
+            }
+        }
+    }
+
+    return fallbackDestinationByType(notification.type)
+}
+
+private fun fallbackDestinationByType(type: String): String {
+    return when (type.trim().lowercase()) {
+        "favorite_update", "favorite_added", "favorite_removed" -> GiftHubDestinations.FAVORITES
+        "order_update", "order_placed", "order_status", "order_cancelled" -> GiftHubDestinations.ORDER_HISTORY
+        "cart_update", "cart_added", "cart_removed" -> GiftHubDestinations.CART
+        "product_update", "product_added", "product_deleted", "review_added", "review_deleted" -> GiftHubDestinations.PRODUCTS
+        "payment_update", "payment_added", "payment_deleted" -> GiftHubDestinations.SAVED_PAYMENTS
+        "address_update", "address_added", "address_deleted" -> GiftHubDestinations.MANAGE_ADDRESS
+        "auth_login", "auth_register" -> GiftHubDestinations.HOME
+        else -> GiftHubDestinations.NOTIFICATIONS
     }
 }
 
