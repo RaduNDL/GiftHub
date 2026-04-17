@@ -1,11 +1,24 @@
 package com.example.gifthub.screens.products
 
 import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,8 +32,24 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.ImageNotSupported
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +70,8 @@ import com.example.gifthub.viewmodel.ReviewViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import java.util.Locale
 
 private val AccentOrange = Color(0xFFFF6B35)
@@ -63,6 +94,15 @@ fun ProductDetailsScreen(
     var quantity by remember { mutableStateOf(1) }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
+    val qrScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { scanned ->
+            val scannedId = scanned.trim()
+            if (scannedId.isNotBlank()) {
+                onNavigate(GiftHubDestinations.extraProductDetails(scannedId))
+            }
+        }
+    }
+
     LaunchedEffect(productId) {
         productViewModel.loadProductById(productId)
         reviewViewModel.fetchReviews(productId)
@@ -79,7 +119,10 @@ fun ProductDetailsScreen(
     ) {
         when {
             isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(color = AccentOrange)
                 }
             }
@@ -92,10 +135,10 @@ fun ProductDetailsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎁", fontSize = 56.sp)
+                        Text(text = "🎁", fontSize = 56.sp)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            error ?: "Product not found",
+                            text = error ?: "Product not found",
                             color = Color(0xFFFF6B6B),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
@@ -106,15 +149,14 @@ fun ProductDetailsScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("Back to products", fontWeight = FontWeight.Bold)
+                            Text(text = "Back to products", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
             else -> {
-                val voucherCode = remember(product.idProduct) { "GH-${product.idProduct.takeLast(8).uppercase()}" }
-                val qrPayload = remember(voucherCode) { voucherCode }
+                val qrPayload = remember(product.idProduct) { product.idProduct }
 
                 Column(
                     modifier = Modifier
@@ -138,9 +180,7 @@ fun ProductDetailsScreen(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(0xFF1E1E3A), Color(0xFF252545))
-                                        )
+                                        Brush.linearGradient(listOf(Color(0xFF1E1E3A), Color(0xFF252545)))
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -177,7 +217,7 @@ fun ProductDetailsScreen(
                                 .background(DarkBg.copy(alpha = 0.6f))
                         ) {
                             Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = TextPrimary
                             )
@@ -264,8 +304,7 @@ fun ProductDetailsScreen(
                                     text = "About this gift",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
-                                    letterSpacing = 0.3.sp
+                                    color = TextPrimary
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
@@ -278,19 +317,22 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            ProductVoucherQrSection(
-                                voucherCode = voucherCode,
-                                qrPayload = qrPayload
+                            ProductQrSection(
+                                qrPayload = qrPayload,
+                                onScanClick = {
+                                    val options = ScanOptions().apply {
+                                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                        setPrompt("Scan a product QR code")
+                                        setBeepEnabled(true)
+                                        setOrientationLocked(true)
+                                    }
+                                    qrScanLauncher.launch(options)
+                                }
                             )
 
                             Spacer(modifier = Modifier.height(28.dp))
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(Color(0xFF252545))
-                            )
+                            HorizontalDivider(color = Color(0xFF252545))
 
                             Spacer(modifier = Modifier.height(24.dp))
 
@@ -331,7 +373,7 @@ fun ProductDetailsScreen(
                                             )
                                     ) {
                                         Icon(
-                                            Icons.Default.Remove,
+                                            imageVector = Icons.Default.Remove,
                                             contentDescription = "Minus",
                                             tint = if (quantity > 1) AccentOrange else Color(0xFF505070),
                                             modifier = Modifier.size(18.dp)
@@ -357,7 +399,7 @@ fun ProductDetailsScreen(
                                             )
                                     ) {
                                         Icon(
-                                            Icons.Default.Add,
+                                            imageVector = Icons.Default.Add,
                                             contentDescription = "Plus",
                                             tint = if (quantity < product.stock) AccentOrange else Color(0xFF505070),
                                             modifier = Modifier.size(18.dp)
@@ -377,9 +419,9 @@ fun ProductDetailsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Total", fontSize = 14.sp, color = TextSecondary)
+                                Text(text = "Total", fontSize = 14.sp, color = TextSecondary)
                                 Text(
-                                    "$${String.format(Locale.US, "%.2f", product.price * quantity)}",
+                                    text = "$${String.format(Locale.US, "%.2f", product.price * quantity)}",
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = AccentAmber
@@ -387,27 +429,6 @@ fun ProductDetailsScreen(
                             }
 
                             Spacer(modifier = Modifier.height(20.dp))
-
-                            Button(
-                                onClick = { onNavigate(GiftHubDestinations.REDEEM_GIFT) },
-                                enabled = product.stock > 0,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF252545),
-                                    disabledContainerColor = Color(0xFF252545)
-                                )
-                            ) {
-                                Text(
-                                    text = "🎟 Redeem with QR",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (product.stock > 0) Color(0xFF00F0FF) else Color(0xFF606080)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
 
                             Button(
                                 onClick = {
@@ -471,7 +492,7 @@ fun ProductDetailsScreen(
                                         .padding(12.dp)
                                 ) {
                                     Text(
-                                        message,
+                                        text = message,
                                         color = Color(0xFF81C784),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium
@@ -497,11 +518,13 @@ fun ProductDetailsScreen(
 }
 
 @Composable
-private fun ProductVoucherQrSection(
-    voucherCode: String,
-    qrPayload: String
+private fun ProductQrSection(
+    qrPayload: String,
+    onScanClick: () -> Unit
 ) {
-    val qrBitmap by remember(qrPayload) { mutableStateOf(generateQrBitmapOrNull(qrPayload, 700)) }
+    val qrBitmap by remember(qrPayload) {
+        mutableStateOf(generateQrBitmapOrNull(qrPayload, 700))
+    }
 
     Column(
         modifier = Modifier
@@ -509,21 +532,29 @@ private fun ProductVoucherQrSection(
             .clip(RoundedCornerShape(16.dp))
             .background(CardSurface)
             .border(1.dp, Color(0xFF2D3A60), RoundedCornerShape(16.dp))
-            .padding(14.dp),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Voucher QR", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(6.dp))
-        Text("Code: $voucherCode", color = TextSecondary, fontSize = 12.sp)
-
-        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Product QR Code",
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Scan with the app to see full details",
+            color = TextSecondary,
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.height(14.dp))
 
         if (qrBitmap != null) {
             Image(
                 bitmap = qrBitmap!!.asImageBitmap(),
-                contentDescription = "Voucher QR",
+                contentDescription = "Product QR",
                 modifier = Modifier
-                    .size(190.dp)
+                    .size(180.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color.White)
                     .padding(8.dp)
@@ -531,21 +562,48 @@ private fun ProductVoucherQrSection(
         } else {
             Box(
                 modifier = Modifier
-                    .size(190.dp)
+                    .size(180.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(Color(0xFF252545)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("QR unavailable", color = Color(0xFFFF8A80), fontSize = 12.sp)
+                Text(text = "QR unavailable", color = Color(0xFFFF8A80), fontSize = 12.sp)
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "Scanează acest QR în ecranul Redeem",
-            color = TextSecondary,
-            fontSize = 11.sp
-        )
+        Spacer(modifier = Modifier.height(14.dp))
+
+        Button(
+            onClick = onScanClick,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        brush = Brush.horizontalGradient(listOf(AccentOrange, AccentAmber)),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(text = "📷", fontSize = 16.sp)
+                    Text(
+                        text = "Scan product QR",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -555,7 +613,10 @@ private fun generateQrBitmapOrNull(content: String, size: Int): Bitmap? {
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         for (x in 0 until size) {
             for (y in 0 until size) {
-                bmp.setPixel(x, y, if (bits[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                bmp.setPixel(
+                    x, y,
+                    if (bits[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+                )
             }
         }
         bmp
@@ -594,20 +655,20 @@ fun ReviewsSection(
                     text = "Customer Reviews",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFF5F5F5)
+                    color = TextPrimary
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Rounded.Star,
                         contentDescription = null,
-                        tint = Color(0xFFFFB347),
+                        tint = AccentAmber,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${String.format(Locale.US, "%.1f", averageRating)} (${reviews.size})",
                         fontSize = 14.sp,
-                        color = Color(0xFFB0B0C0),
+                        color = TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -619,7 +680,7 @@ fun ReviewsSection(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF252545)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Write Review", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
+                    Text(text = "Write Review", color = Color(0xFF00F0FF), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -627,8 +688,13 @@ fun ReviewsSection(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (reviews.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), contentAlignment = Alignment.Center) {
-                Text("No reviews yet. Be the first!", color = Color(0xFFB0B0C0), fontSize = 14.sp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 20.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "No reviews yet. Be the first!", color = TextSecondary, fontSize = 14.sp)
             }
         } else {
             reviews.forEach { review ->
@@ -674,7 +740,11 @@ fun ReviewCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1E1E3A))
-            .border(1.dp, if (isCurrentUser) Color(0xFF00F0FF).copy(alpha = 0.3f) else Color.Transparent, RoundedCornerShape(16.dp))
+            .border(
+                width = 1.dp,
+                color = if (isCurrentUser) Color(0xFF00F0FF).copy(alpha = 0.3f) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
             .padding(16.dp)
     ) {
         Row(
@@ -686,7 +756,7 @@ fun ReviewCard(
                 Text(
                     text = if (isCurrentUser) "You" else "Verified Buyer",
                     fontWeight = FontWeight.Bold,
-                    color = if (isCurrentUser) Color(0xFF00F0FF) else Color(0xFFF5F5F5),
+                    color = if (isCurrentUser) Color(0xFF00F0FF) else TextPrimary,
                     fontSize = 14.sp
                 )
                 Row(modifier = Modifier.padding(top = 4.dp)) {
@@ -694,7 +764,7 @@ fun ReviewCard(
                         Icon(
                             imageVector = if (index < review.rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                             contentDescription = null,
-                            tint = Color(0xFFFFB347),
+                            tint = AccentAmber,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -727,7 +797,7 @@ fun ReviewCard(
 
         Text(
             text = review.comment,
-            color = Color(0xFFB0B0C0),
+            color = TextSecondary,
             fontSize = 14.sp,
             lineHeight = 20.sp
         )
@@ -749,7 +819,7 @@ fun ReviewDialog(
         title = {
             Text(
                 text = if (initialReview == null) "Write a Review" else "Edit Review",
-                color = Color(0xFFF5F5F5),
+                color = TextPrimary,
                 fontWeight = FontWeight.Bold
             )
         },
@@ -763,7 +833,7 @@ fun ReviewDialog(
                         Icon(
                             imageVector = if (index < rating) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                             contentDescription = null,
-                            tint = Color(0xFFFFB347),
+                            tint = AccentAmber,
                             modifier = Modifier
                                 .size(40.dp)
                                 .padding(4.dp)
@@ -779,8 +849,8 @@ fun ReviewDialog(
                         .fillMaxWidth()
                         .height(120.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color(0xFFF5F5F5),
-                        unfocusedTextColor = Color(0xFFF5F5F5),
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
                         focusedBorderColor = Color(0xFF00F0FF),
                         unfocusedBorderColor = Color(0xFF353560)
                     ),
@@ -791,14 +861,14 @@ fun ReviewDialog(
         confirmButton = {
             Button(
                 onClick = { onSubmit(rating, comment) },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B35))
+                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
             ) {
-                Text("Submit", fontWeight = FontWeight.Bold)
+                Text(text = "Submit", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color(0xFFB0B0C0))
+                Text(text = "Cancel", color = TextSecondary)
             }
         }
     )
