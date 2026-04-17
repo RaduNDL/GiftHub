@@ -1,69 +1,75 @@
 package com.example.gifthub.screens.notifications
 
-import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
-import com.example.gifthub.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
 
-object GiftHubMessagingService {
-    private const val CHANNEL_ID = "gifthub_local_channel"
-    private val lastShownByKey = mutableMapOf<String, Long>()
-    private const val DEDUP_WINDOW_MS = 45_000L
+class GiftHubMessagingService : FirebaseMessagingService() {
 
-    private fun shouldShow(key: String): Boolean {
-        val now = System.currentTimeMillis()
-        val last = lastShownByKey[key] ?: 0L
-        if (now - last < DEDUP_WINDOW_MS) return false
-        lastShownByKey[key] = now
-        return true
+    override fun onCreate() {
+        super.onCreate()
+        DeviceIdProvider.init(applicationContext)
+        NotificationHelper.ensureChannels(applicationContext)
     }
 
-    fun showLocalNotification(
-        context: Context,
-        title: String,
-        message: String,
-        notificationId: Int,
-        dedupKey: String = "$title|$message"
-    ) {
-        if (!shouldShow(dedupKey)) return
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        if (token.isBlank()) return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        PushTokenManager.updateToken(uid, token)
+    }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) return
+    override fun onMessageReceived(message: RemoteMessage) {
+        super.onMessageReceived(message)
+
+        if (isDuplicateMessage(message.messageId)) return
+
+        val data = message.data
+        val title = message.notification?.title
+            ?: data["title"]
+            ?: "GiftHub"
+        val body = message.notification?.body
+            ?: data["message"]
+            ?: data["body"]
+            ?: return
+
+        val targetRoute = data["targetRoute"]?.takeIf { it.isNotBlank() }
+        val channelId = data["channelId"]?.takeIf { it.isNotBlank() }
+            ?: NotificationHelper.CHANNEL_ID_GENERAL
+
+        val stableKey = data["notificationId"]
+            ?: message.messageId
+            ?: "$title|$body"
+
+        NotificationHelper.show(
+            context = applicationContext,
+            channelId = channelId,
+            title = title,
+            message = body,
+            targetRoute = targetRoute,
+            notificationId = stableKey.hashCode()
+        )
+    }
+
+    private fun isDuplicateMessage(messageId: String?): Boolean {
+        if (messageId.isNullOrBlank()) return false
+        val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val seen = prefs.getStringSet(KEY_SEEN_IDS, emptySet()).orEmpty()
+        if (messageId in seen) return true
+        val updated = seen.toMutableSet().apply { add(messageId) }
+        val trimmed = if (updated.size > MAX_SEEN_IDS) {
+            updated.toList().takeLast(MAX_SEEN_IDS).toSet()
+        } else {
+            updated
         }
+        prefs.edit().putStringSet(KEY_SEEN_IDS, trimmed).apply()
+        return false
+    }
 
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "GiftHub Notifications",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            manager.createNotificationChannel(channel)
-        }
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setAutoCancel(true)
-            .build()
-
-        try {
-            NotificationManagerCompat.from(context).notify(notificationId, notification)
-        } catch (_: SecurityException) {
-        }
+    companion object {
+        private const val PREFS_NAME = "gifthub_fcm_prefs"
+        private const val KEY_SEEN_IDS = "seen_message_ids"
+        private const val MAX_SEEN_IDS = 200
     }
 }

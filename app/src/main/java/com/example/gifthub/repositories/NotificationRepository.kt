@@ -2,6 +2,7 @@ package com.example.gifthub.repositories
 
 import com.example.gifthub.models.NotificationDto
 import com.example.gifthub.navigation.GiftHubDestinations
+import com.example.gifthub.screens.notifications.DeviceIdProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -36,7 +37,6 @@ class NotificationRepository {
     private fun normalizeTargetRoute(type: String, targetRoute: String): String {
         val route = targetRoute.trim()
         if (route.isNotEmpty()) return route
-
         return when (normalizeType(type)) {
             "favorite_update" -> GiftHubDestinations.FAVORITES
             "order_update" -> GiftHubDestinations.ORDER_HISTORY
@@ -47,31 +47,6 @@ class NotificationRepository {
             "auth_update" -> GiftHubDestinations.HOME
             else -> GiftHubDestinations.NOTIFICATIONS
         }
-    }
-
-    private fun buildNotificationPayload(
-        userId: String,
-        docId: String,
-        title: String,
-        message: String,
-        type: String,
-        targetRoute: String,
-        orderId: String
-    ): NotificationDto {
-        val normalizedType = normalizeType(type)
-        val normalizedRoute = normalizeTargetRoute(normalizedType, targetRoute)
-
-        return NotificationDto(
-            notificationID = docId,
-            userId = userId,
-            title = title.trim(),
-            message = message.trim(),
-            createdDate = System.currentTimeMillis(),
-            markedAsRead = false,
-            type = normalizedType,
-            targetRoute = normalizedRoute,
-            orderId = orderId
-        )
     }
 
     fun createNotification(
@@ -94,14 +69,20 @@ class NotificationRepository {
         }
 
         val docRef = notificationsCollection(userId).document()
-        val payload = buildNotificationPayload(
-            userId = userId,
-            docId = docRef.id,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            orderId = orderId
+        val normalizedType = normalizeType(type)
+        val normalizedRoute = normalizeTargetRoute(normalizedType, targetRoute)
+
+        val payload = hashMapOf<String, Any>(
+            "notificationID" to docRef.id,
+            "userId" to userId,
+            "title" to title.trim(),
+            "message" to message.trim(),
+            "createdDate" to System.currentTimeMillis(),
+            "markedAsRead" to false,
+            "type" to normalizedType,
+            "targetRoute" to normalizedRoute,
+            "orderId" to orderId,
+            "sourceDeviceId" to DeviceIdProvider.getDeviceIdOrEmpty()
         )
 
         docRef.set(payload)
@@ -119,16 +100,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            orderId = orderId,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, orderId, onSuccess, onError)
     }
 
     fun createFavoriteNotification(
@@ -140,15 +112,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, "", onSuccess, onError)
     }
 
     fun createCartNotification(
@@ -160,15 +124,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, "", onSuccess, onError)
     }
 
     fun createProductNotification(
@@ -180,15 +136,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, "", onSuccess, onError)
     }
 
     fun createPaymentNotification(
@@ -200,15 +148,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, "", onSuccess, onError)
     }
 
     fun createAddressNotification(
@@ -220,15 +160,7 @@ class NotificationRepository {
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
-        createNotification(
-            userId = userId,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+        createNotification(userId, title, message, type, targetRoute, "", onSuccess, onError)
     }
 
     fun getNotifications(
@@ -273,7 +205,6 @@ class NotificationRepository {
             onError("Invalid notification ID")
             return
         }
-
         notificationsCollection(uid)
             .document(notificationId)
             .update("markedAsRead", true)
@@ -290,7 +221,6 @@ class NotificationRepository {
             onError("Invalid notification ID")
             return
         }
-
         notificationsCollection(uid)
             .document(notificationId)
             .delete()

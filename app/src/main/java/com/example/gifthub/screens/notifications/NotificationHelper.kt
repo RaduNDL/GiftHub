@@ -14,7 +14,6 @@ import androidx.core.content.ContextCompat
 import com.example.gifthub.MainActivity
 import com.example.gifthub.R
 import com.example.gifthub.navigation.GiftHubDestinations
-import kotlin.random.Random
 
 object NotificationHelper {
     const val CHANNEL_ID_GENERAL = "gifthub_general"
@@ -22,19 +21,38 @@ object NotificationHelper {
     const val CHANNEL_ID_ORDERS = "gifthub_orders"
     const val EXTRA_TARGET_ROUTE = "targetRoute"
 
+    private const val PREFS_NAME = "gifthub_notification_prefs"
+    private const val KEY_LAST_SHOWN_PREFIX = "last_shown_"
+    private const val DEDUP_WINDOW_MS = 30_000L
+
     fun ensureChannels(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channels = listOf(
-                NotificationChannel(CHANNEL_ID_GENERAL, "General", NotificationManager.IMPORTANCE_HIGH),
-                NotificationChannel(CHANNEL_ID_PRODUCTS, "Products", NotificationManager.IMPORTANCE_HIGH),
-                NotificationChannel(CHANNEL_ID_ORDERS, "Orders", NotificationManager.IMPORTANCE_HIGH)
-            )
-            channels.forEach { channel ->
-                channel.description = channel.name.toString()
-                manager.createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val existingIds = manager.notificationChannels.map { it.id }.toSet()
+        val required = listOf(
+            Triple(CHANNEL_ID_GENERAL, "General", NotificationManager.IMPORTANCE_HIGH),
+            Triple(CHANNEL_ID_PRODUCTS, "Products", NotificationManager.IMPORTANCE_HIGH),
+            Triple(CHANNEL_ID_ORDERS, "Orders", NotificationManager.IMPORTANCE_HIGH)
+        )
+        required.forEach { (id, name, importance) ->
+            if (id !in existingIds) {
+                manager.createNotificationChannel(NotificationChannel(id, name, importance))
             }
         }
+    }
+
+    private fun dedupKeyFor(title: String, message: String, targetRoute: String?): String {
+        return "${title.trim()}|${message.trim()}|${targetRoute.orEmpty().trim()}"
+    }
+
+    private fun shouldShow(context: Context, dedupKey: String): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val storageKey = KEY_LAST_SHOWN_PREFIX + dedupKey.hashCode().toString()
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong(storageKey, 0L)
+        if (now - last < DEDUP_WINDOW_MS) return false
+        prefs.edit().putLong(storageKey, now).apply()
+        return true
     }
 
     fun show(
@@ -43,41 +61,47 @@ object NotificationHelper {
         title: String,
         message: String,
         targetRoute: String? = null,
-        notificationId: Int = Random.nextInt(100000, 999999)
+        notificationId: Int = dedupKeyFor(title, message, targetRoute).hashCode()
     ) {
-        ensureChannels(context)
+        val appContext = context.applicationContext
+        ensureChannels(appContext)
+
+        val dedupKey = dedupKeyFor(title, message, targetRoute)
+        if (!shouldShow(appContext, dedupKey)) return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
-                context,
+                appContext,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             if (!granted) return
         }
 
-        val openIntent = Intent(context, MainActivity::class.java).apply {
+        val openIntent = Intent(appContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             targetRoute?.let { putExtra(EXTRA_TARGET_ROUTE, it) }
         }
 
         val pendingIntent = PendingIntent.getActivity(
-            context,
+            appContext,
             notificationId,
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, channelId)
+        val notification = NotificationCompat.Builder(appContext, channelId)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
             .build()
 
         try {
-            NotificationManagerCompat.from(context).notify(notificationId, notification)
+            NotificationManagerCompat.from(appContext).notify(notificationId, notification)
         } catch (_: SecurityException) {
         }
     }

@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.gifthub.navigation.GiftHubNavGraph
+import com.example.gifthub.screens.notifications.DeviceIdProvider
 import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.screens.notifications.PushTokenManager
 import com.example.gifthub.ui.theme.GiftHubTheme
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         FirebaseApp.initializeApp(this)
+        DeviceIdProvider.init(this)
         NotificationHelper.ensureChannels(this)
         PushTokenManager.syncCurrentToken()
         PushTokenManager.subscribeDefaultTopics()

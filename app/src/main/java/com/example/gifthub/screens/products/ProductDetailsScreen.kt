@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -58,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -68,6 +70,7 @@ import com.example.gifthub.viewmodel.CartViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 import com.example.gifthub.viewmodel.ReviewViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
@@ -92,7 +95,11 @@ fun ProductDetailsScreen(
     reviewViewModel: ReviewViewModel = viewModel()
 ) {
     var quantity by remember { mutableStateOf(1) }
+    var userRole by remember { mutableStateOf("") }
+    var showEditStockDialog by remember { mutableStateOf(false) }
+
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    val isEmployee = userRole == "employee"
 
     val qrScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         result.contents?.let { scanned ->
@@ -108,6 +115,18 @@ fun ProductDetailsScreen(
         reviewViewModel.fetchReviews(productId)
     }
 
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotBlank()) {
+            FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(currentUserId)
+                .get()
+                .addOnSuccessListener { doc ->
+                    userRole = doc.getString("role").orEmpty()
+                }
+        }
+    }
+
     val product = productViewModel.selectedProduct
     val isLoading = productViewModel.isLoading
     val error = productViewModel.errorMessage
@@ -118,7 +137,7 @@ fun ProductDetailsScreen(
             .background(DarkBg)
     ) {
         when {
-            isLoading -> {
+            isLoading && product == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = AccentOrange)
                 }
@@ -158,7 +177,6 @@ fun ProductDetailsScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Hero image
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -216,9 +234,26 @@ fun ProductDetailsScreen(
                                 tint = TextPrimary
                             )
                         }
+
+                        if (isEmployee) {
+                            IconButton(
+                                onClick = { showEditStockDialog = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(16.dp)
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentOrange.copy(alpha = 0.85f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit stock",
+                                    tint = Color.White
+                                )
+                            }
+                        }
                     }
 
-                    // Content card
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -231,7 +266,6 @@ fun ProductDetailsScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 24.dp, vertical = 28.dp)
                         ) {
-                            // Name & price
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -256,7 +290,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Stock indicator
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -275,7 +308,6 @@ fun ProductDetailsScreen(
                                 )
                             }
 
-                            // Description
                             if (product.description.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Text(text = "About this gift", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
@@ -285,7 +317,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // QR section
                             ProductQrSection(
                                 qrPayload = qrPayload,
                                 onScanClick = {
@@ -303,7 +334,6 @@ fun ProductDetailsScreen(
                             HorizontalDivider(color = Color(0xFF252545))
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // Quantity picker
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -363,7 +393,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(28.dp))
 
-                            // Running total
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -384,7 +413,6 @@ fun ProductDetailsScreen(
 
                             Spacer(modifier = Modifier.height(20.dp))
 
-                            // Add to Cart button — customization removed
                             Button(
                                 onClick = { cartViewModel.addToCart(product, quantity) },
                                 enabled = product.stock > 0 && !cartViewModel.isLoading,
@@ -421,7 +449,6 @@ fun ProductDetailsScreen(
                                 }
                             }
 
-                            // Cart feedback message
                             cartViewModel.userMessage?.let { message ->
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Box(
@@ -447,9 +474,174 @@ fun ProductDetailsScreen(
                         }
                     }
                 }
+
+                if (showEditStockDialog) {
+                    EditStockDialog(
+                        productName = product.name,
+                        currentStock = product.stock,
+                        currentPrice = product.price,
+                        isSaving = productViewModel.isLoading,
+                        onDismiss = { showEditStockDialog = false },
+                        onSave = { newStock, newPrice ->
+                            productViewModel.updateProduct(
+                                productId = product.idProduct,
+                                name = product.name,
+                                description = product.description,
+                                priceStr = newPrice.toString(),
+                                stockStr = newStock.toString(),
+                                categoryIdStr = product.categoryId,
+                                imageUrl = product.imageUrl
+                            ) {
+                                showEditStockDialog = false
+                                productViewModel.loadProductById(productId)
+                            }
+                        }
+                    )
+                }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditStockDialog(
+    productName: String,
+    currentStock: Int,
+    currentPrice: Double,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (Int, Double) -> Unit
+) {
+    var stockStr by remember { mutableStateOf(currentStock.toString()) }
+    var priceStr by remember { mutableStateOf(String.format(Locale.US, "%.2f", currentPrice)) }
+
+    val parsedStock = stockStr.toIntOrNull()
+    val parsedPrice = priceStr.toDoubleOrNull()
+    val isValid = parsedStock != null && parsedStock >= 0 && parsedPrice != null && parsedPrice >= 0.0
+    val hasChanges = parsedStock != currentStock || parsedPrice != currentPrice
+    val canSave = isValid && hasChanges && !isSaving
+
+    AlertDialog(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        containerColor = DarkSurface,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Quick Edit",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = productName,
+                    color = TextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Current stock: $currentStock · Current price: $${String.format(Locale.US, "%.2f", currentPrice)}",
+                    color = TextSecondary,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                OutlinedTextField(
+                    value = stockStr,
+                    onValueChange = { input -> stockStr = input.filter { it.isDigit() } },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Stock quantity") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = AccentOrange,
+                        unfocusedBorderColor = Color(0xFF353560),
+                        focusedLabelColor = AccentAmber,
+                        unfocusedLabelColor = TextSecondary,
+                        cursorColor = AccentOrange
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = priceStr,
+                    onValueChange = { input ->
+                        priceStr = input.filter { it.isDigit() || it == '.' }.let { cleaned ->
+                            val firstDot = cleaned.indexOf('.')
+                            if (firstDot == -1) cleaned
+                            else cleaned.substring(0, firstDot + 1) + cleaned.substring(firstDot + 1).replace(".", "")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Price ($)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = AccentOrange,
+                        unfocusedBorderColor = Color(0xFF353560),
+                        focusedLabelColor = AccentAmber,
+                        unfocusedLabelColor = TextSecondary,
+                        cursorColor = AccentOrange
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val s = parsedStock
+                    val p = parsedPrice
+                    if (s != null && p != null) onSave(s, p)
+                },
+                enabled = canSave,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentOrange,
+                    disabledContainerColor = Color(0xFF303050),
+                    contentColor = Color.White,
+                    disabledContentColor = Color(0xFF707090)
+                )
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text(text = "Save", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSaving
+            ) {
+                Text(text = "Cancel", color = TextSecondary, fontWeight = FontWeight.Medium)
+            }
+        }
+    )
 }
 
 @Composable

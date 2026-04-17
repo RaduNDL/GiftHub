@@ -53,7 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.gifthub.screens.notifications.GiftHubMessagingService
+import com.example.gifthub.navigation.GiftHubDestinations
+import com.example.gifthub.screens.notifications.NotificationHelper
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
 
@@ -276,13 +277,13 @@ fun EditProductScreen(
                                 if (oldPrice != null && newPrice != null && oldPrice != newPrice) {
                                     val direction = if (newPrice < oldPrice) "dropped" else "updated"
                                     val emoji = if (newPrice < oldPrice) "🔥" else "📦"
-                                    val dedup = "price_change_${productId}_${"%.2f".format(newPrice)}"
-                                    GiftHubMessagingService.showLocalNotification(
+                                    NotificationHelper.show(
                                         context = context,
+                                        channelId = NotificationHelper.CHANNEL_ID_PRODUCTS,
                                         title = "$emoji Price $direction!",
                                         message = "\"$originalProductName\" is now $${"%.2f".format(newPrice)} (was $${"%.2f".format(oldPrice)})",
-                                        notificationId = ("price_change_$productId").hashCode(),
-                                        dedupKey = dedup
+                                        targetRoute = GiftHubDestinations.PRODUCTS,
+                                        notificationId = ("price_change_$productId").hashCode()
                                     )
                                 }
                                 onBack()

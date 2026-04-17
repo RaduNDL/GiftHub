@@ -1,5 +1,11 @@
 package com.example.gifthub.screens.orders
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +33,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.LocalShipping
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -59,6 +66,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -133,7 +141,7 @@ fun OrderHistoryScreen(
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = if (isEmployee) "All Orders" else "Order History",
                             style = MaterialTheme.typography.headlineSmall,
@@ -145,6 +153,18 @@ fun OrderHistoryScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    RefreshIconButton(
+                        isLoading = isLoading,
+                        onClick = {
+                            orderViewModel.loadOrders(isEmployee = isEmployee)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Orders refreshed",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -190,6 +210,32 @@ fun OrderHistoryScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RefreshIconButton(
+    isLoading: Boolean,
+    onClick: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "refresh_rotation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "refresh_rotation_angle"
+    )
+
+    IconButton(onClick = onClick, enabled = !isLoading) {
+        Icon(
+            imageVector = Icons.Default.Refresh,
+            contentDescription = "Refresh orders",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = if (isLoading) Modifier.rotate(rotation) else Modifier
+        )
     }
 }
 
@@ -277,12 +323,16 @@ fun OrderDetailsScreen(
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text("Order Details", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         if (order != null) {
                             Text("#${order.orderId.take(8).uppercase()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    RefreshIconButton(
+                        isLoading = orderViewModel.isLoading,
+                        onClick = { orderViewModel.loadOrders(isEmployee = isEmployee) }
+                    )
                 }
             }
         }

@@ -28,7 +28,6 @@
             </intent-filter>
         </activity>
 
-
         <service
             android:name=".screens.notifications.GiftHubMessagingService"
             android:exported="false">
@@ -39,11 +38,11 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="gifthub_main" />
+            android:value="gifthub_general" />
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
+            android:resource="@drawable/ic_launcher_foreground" />
 
     </application>
 
