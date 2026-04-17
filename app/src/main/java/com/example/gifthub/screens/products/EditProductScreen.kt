@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,6 +77,9 @@ fun EditProductScreen(
     var selectedCategoryId by remember { mutableStateOf("") }
     var selectedCategoryName by remember { mutableStateOf("") }
 
+    var baselinePrice by remember { mutableDoubleStateOf(Double.NaN) }
+    var baselineName by remember { mutableStateOf("") }
+
     val product = viewModel.selectedProduct
     val categories = categoryViewModel.categoriesList
 
@@ -87,7 +91,7 @@ fun EditProductScreen(
         viewModel.loadProductById(productId)
     }
 
-    LaunchedEffect(product) {
+    LaunchedEffect(product?.idProduct) {
         product?.let {
             name = it.name
             description = it.description
@@ -96,18 +100,14 @@ fun EditProductScreen(
             imageUrl = it.imageUrl
             selectedCategoryId = it.categoryId
 
-            val matchedCategory = categories.firstOrNull { category ->
-                category.categoryId == it.categoryId
-            }
-            selectedCategoryName = matchedCategory?.name ?: ""
+            baselinePrice = it.price
+            baselineName = it.name
         }
     }
 
     LaunchedEffect(categories, selectedCategoryId) {
         val currentCategory = categories.firstOrNull { it.categoryId == selectedCategoryId }
-        if (currentCategory != null) {
-            selectedCategoryName = currentCategory.name
-        }
+        selectedCategoryName = currentCategory?.name.orEmpty()
     }
 
     Scaffold { paddingValues ->
@@ -313,9 +313,9 @@ fun EditProductScreen(
 
                     Button(
                         onClick = {
-                            val oldPrice = product?.price
+                            val oldPrice = if (baselinePrice.isNaN()) null else baselinePrice
                             val newPrice = priceStr.toDoubleOrNull()
-                            val productName = name
+                            val originalProductName = baselineName.ifBlank { name }
 
                             viewModel.updateProduct(
                                 productId = productId,
@@ -332,8 +332,8 @@ fun EditProductScreen(
                                     GiftHubMessagingService.showLocalNotification(
                                         context = context,
                                         title = "$emoji Price $direction!",
-                                        message = "\"$productName\" is now $${"%.2f".format(newPrice)} (was $${"%.2f".format(oldPrice)})",
-                                        notificationId = productId.hashCode()
+                                        message = "\"$originalProductName\" is now $${"%.2f".format(newPrice)} (was $${"%.2f".format(oldPrice)})",
+                                        notificationId = ("price_change_$productId").hashCode()
                                     )
                                 }
                                 onBack()

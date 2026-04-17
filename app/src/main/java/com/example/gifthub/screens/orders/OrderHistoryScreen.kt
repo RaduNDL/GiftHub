@@ -74,12 +74,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// All possible statuses an employee can assign
 private val ALL_STATUSES = listOf("Pending", "Processing", "Delivered", "Cancelled")
-
-// ═══════════════════════════════════════════════════════════════
-//  OrderHistoryScreen
-// ═══════════════════════════════════════════════════════════════
 
 @Composable
 fun OrderHistoryScreen(
@@ -95,7 +90,7 @@ fun OrderHistoryScreen(
     var selectedOrder by remember { mutableStateOf<OrderDto?>(null) }
     var showOrderDetails by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isEmployee) {
         orderViewModel.loadOrders(isEmployee = isEmployee)
     }
 
@@ -164,7 +159,9 @@ fun OrderHistoryScreen(
                         CircularProgressIndicator()
                     }
                 }
+
                 orders.isEmpty() -> EmptyOrdersState()
+
                 else -> {
                     LazyColumn(
                         modifier = Modifier
@@ -183,7 +180,7 @@ fun OrderHistoryScreen(
                                 isUpdating = orderViewModel.isLoading,
                                 onViewDetails = { selectedOrder = order; showOrderDetails = true },
                                 onStatusChange = { newStatus ->
-                                    orderViewModel.updateOrderStatus(order.orderId, newStatus)
+                                    orderViewModel.updateOrderStatus(order.userId, order.orderId, newStatus)
                                 }
                             )
                         }
@@ -196,25 +193,24 @@ fun OrderHistoryScreen(
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  OrderDetailsScreen  (full-screen, used from nav graph)
-// ═══════════════════════════════════════════════════════════════
-
 @Composable
 fun OrderDetailsScreen(
     orderId: String,
     onBack: () -> Unit,
-    orderViewModel: OrderViewModel = viewModel()
+    orderViewModel: OrderViewModel = viewModel(),
+    isEmployee: Boolean = false
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var showCancelDialog by remember { mutableStateOf(false) }
+    var showStatusUpdateDialog by remember { mutableStateOf(false) }
+    var pendingStatus by remember { mutableStateOf("") }
 
     val order: OrderDto? = orderViewModel.orders.firstOrNull { it.orderId == orderId }
 
-    LaunchedEffect(Unit) {
-        if (orderViewModel.orders.isEmpty()) {
-            orderViewModel.loadOrders(isEmployee = false)
+    LaunchedEffect(orderId, isEmployee) {
+        if (order == null || orderViewModel.orders.isEmpty()) {
+            orderViewModel.loadOrders(isEmployee = isEmployee)
         }
     }
 
@@ -230,6 +226,29 @@ fun OrderDetailsScreen(
             coroutineScope.launch { snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short) }
             orderViewModel.clearUserMessage()
         }
+    }
+
+    if (showStatusUpdateDialog) {
+        AlertDialog(
+            onDismissRequest = { showStatusUpdateDialog = false },
+            title = { Text("Update Order Status", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Change order #${order?.orderId?.take(8)?.uppercase()} status to \"$pendingStatus\"?\n\nThe customer will receive a push notification about this change.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (order != null) {
+                            orderViewModel.updateOrderStatus(order.userId, orderId, pendingStatus)
+                        }
+                        showStatusUpdateDialog = false
+                    }
+                ) { Text("Confirm & Notify") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStatusUpdateDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showCancelDialog) {
@@ -337,7 +356,18 @@ fun OrderDetailsScreen(
                         }
                     }
 
-                    if (order.status.equals("Pending", ignoreCase = true)) {
+                    if (isEmployee) {
+                        EmployeeStatusPanel(
+                            currentStatus = order.status,
+                            isUpdating = orderViewModel.isLoading,
+                            onStatusChange = { newStatus ->
+                                pendingStatus = newStatus
+                                showStatusUpdateDialog = true
+                            }
+                        )
+                    }
+
+                    if (order.status.equals("Pending", ignoreCase = true) && !isEmployee) {
                         Button(
                             onClick = { showCancelDialog = true },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -356,10 +386,6 @@ fun OrderDetailsScreen(
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Employee status update panel (shown inside each OrderCard)
-// ═══════════════════════════════════════════════════════════════
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EmployeeStatusPanel(
@@ -374,9 +400,7 @@ private fun EmployeeStatusPanel(
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             title = { Text("Update Status", fontWeight = FontWeight.Bold) },
-            text = {
-                Text("Change order status to \"$pendingStatus\"?")
-            },
+            text = { Text("Change order status to \"$pendingStatus\"?") },
             confirmButton = {
                 Button(onClick = {
                     onStatusChange(pendingStatus)
@@ -443,22 +467,21 @@ private fun EmployeeStatusPanel(
             }
 
             if (isUpdating) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp).align(Alignment.CenterVertically), strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp).align(Alignment.CenterVertically),
+                    strokeWidth = 2.dp
+                )
             }
         }
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Shared private helpers
-// ═══════════════════════════════════════════════════════════════
-
 private fun statusBannerColors(status: String): Pair<Color, Color> = when (status.lowercase()) {
-    "pending"    -> Pair(Color(0xFFFFF3E0), Color(0xFFE65100))
+    "pending" -> Pair(Color(0xFFFFF3E0), Color(0xFFE65100))
     "processing" -> Pair(Color(0xFFE3F2FD), Color(0xFF1565C0))
-    "delivered"  -> Pair(Color(0xFFE8F5E9), Color(0xFF2E7D32))
-    "cancelled"  -> Pair(Color(0xFFFFEBEE), Color(0xFFC62828))
-    else         -> Pair(Color(0xFFF5F5F5), Color(0xFF616161))
+    "delivered" -> Pair(Color(0xFFE8F5E9), Color(0xFF2E7D32))
+    "cancelled" -> Pair(Color(0xFFFFEBEE), Color(0xFFC62828))
+    else -> Pair(Color(0xFFF5F5F5), Color(0xFF616161))
 }
 
 private fun formatDate(timestamp: Timestamp?): String {
@@ -466,10 +489,6 @@ private fun formatDate(timestamp: Timestamp?): String {
     val date = Date(timestamp.seconds * 1000)
     return SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(date)
 }
-
-// ═══════════════════════════════════════════════════════════════
-//  Private composables for OrderHistoryScreen
-// ═══════════════════════════════════════════════════════════════
 
 @Composable
 private fun OrdersSummaryCard(orderCount: Int, isEmployee: Boolean) {
@@ -479,7 +498,10 @@ private fun OrdersSummaryCard(orderCount: Int, isEmployee: Boolean) {
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.surface, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(Icons.Default.History, "Orders", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
             }
             Spacer(modifier = Modifier.size(14.dp))
@@ -491,7 +513,12 @@ private fun OrdersSummaryCard(orderCount: Int, isEmployee: Boolean) {
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Spacer(modifier = Modifier.size(4.dp))
-                Text(orderCount.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text(
+                    orderCount.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
@@ -512,7 +539,11 @@ private fun OrderCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Order #${order.orderId.take(8).uppercase()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.size(4.dp))
@@ -524,7 +555,10 @@ private fun OrderCard(
             Spacer(modifier = Modifier.size(12.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 HistoryDetailItem(Icons.Default.LocationOn, "Items", "${order.items.size}")
@@ -535,20 +569,34 @@ private fun OrderCard(
             Spacer(modifier = Modifier.size(12.dp))
 
             if (order.items.isNotEmpty()) {
-                Text("Items (${order.items.size})", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                Text(
+                    "Items (${order.items.size})",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
                 order.items.take(2).forEach { item ->
                     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("• ${item.name}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        Text("x${item.quantity}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "x${item.quantity}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
                 if (order.items.size > 2) {
-                    Text("+${order.items.size - 2} more items", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                    Text(
+                        "+${order.items.size - 2} more items",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.size(12.dp))
             }
 
-            // ── Employee-only status update panel ──────────────────────
             if (isEmployee) {
                 EmployeeStatusPanel(
                     currentStatus = order.status,
@@ -575,7 +623,7 @@ private fun HistoryStatusBadge(status: String) {
     val colors = statusBannerColors(status)
     val icon: ImageVector = when (status.lowercase()) {
         "delivered" -> Icons.Default.CheckCircle
-        else        -> Icons.Outlined.LocalShipping
+        else -> Icons.Outlined.LocalShipping
     }
     AssistChip(
         onClick = {},
@@ -603,35 +651,74 @@ private fun OrderDetailsDialog(order: OrderDto, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("Order Details", fontWeight = FontWeight.Bold) },
         text = {
-            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Order ID: ${order.orderId.take(8).uppercase()}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                         Text("Date: ${formatDate(order.createdAt)}", style = MaterialTheme.typography.labelMedium)
                         Text("Status: ${order.status}", style = MaterialTheme.typography.labelMedium)
                     }
                 }
+
                 Text("Items (${order.items.size})", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+
                 order.items.forEach { item ->
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(item.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                                Text("$${String.format(Locale.US, "%.2f", item.price)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "$${String.format(Locale.US, "%.2f", item.price)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             Text("x${item.quantity}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
+
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                    Text("$${String.format(Locale.US, "%.2f", order.totalAmount)}", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
-                Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(12.dp)) {
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
                     Text("Shipping Address", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 4.dp))
                     Text(order.address, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(12.dp)) {
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
                     Text("Payment Method", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 4.dp))
                     Text(order.paymentMethod, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

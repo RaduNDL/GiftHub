@@ -46,9 +46,7 @@ class OrderRepository {
         )
 
         orderRef.set(orderDto)
-            .addOnSuccessListener {
-                onSuccess(orderId)
-            }
+            .addOnSuccessListener { onSuccess(orderId) }
             .addOnFailureListener { onError(it.message ?: "Failed to place order") }
     }
 
@@ -59,22 +57,42 @@ class OrderRepository {
     ) {
         val uid = auth.currentUser?.uid ?: return onError("User not authenticated")
 
-        val query = if (isEmployee) {
-            firestore.collectionGroup("orders")
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-        } else {
+        if (!isEmployee) {
             firestore.collection("users").document(uid).collection("orders")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val orders = snapshot.documents.mapNotNull { doc ->
+                        runCatching { doc.toObject(OrderDto::class.java) }.getOrNull()
+                    }
+                    onSuccess(orders)
+                }
+                .addOnFailureListener { onError(it.message ?: "Failed to load orders") }
+            return
         }
 
-        query.get()
+        firestore.collectionGroup("orders")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .get()
             .addOnSuccessListener { snapshot ->
                 val orders = snapshot.documents.mapNotNull { doc ->
                     runCatching { doc.toObject(OrderDto::class.java) }.getOrNull()
                 }
                 onSuccess(orders)
             }
-            .addOnFailureListener { onError(it.message ?: "Failed to load orders") }
+            .addOnFailureListener { primaryError ->
+                firestore.collectionGroup("orders")
+                    .get()
+                    .addOnSuccessListener { snapshot ->
+                        val orders = snapshot.documents.mapNotNull { doc ->
+                            runCatching { doc.toObject(OrderDto::class.java) }.getOrNull()
+                        }.sortedByDescending { it.createdAt?.seconds ?: 0L }
+                        onSuccess(orders)
+                    }
+                    .addOnFailureListener { fallbackError ->
+                        onError(primaryError.message ?: fallbackError.message ?: "Failed to load orders")
+                    }
+            }
     }
 
     fun getOrderById(
@@ -93,41 +111,46 @@ class OrderRepository {
                     return@addOnSuccessListener
                 }
                 val order = runCatching { document.toObject(OrderDto::class.java) }.getOrNull()
-                if (order == null) onError("Failed to parse order")
-                else onSuccess(order)
+                if (order == null) onError("Failed to parse order") else onSuccess(order)
             }
             .addOnFailureListener { onError(it.message ?: "Failed to fetch order") }
     }
 
     fun updateOrderStatus(
+        userId: String,
         orderId: String,
         newStatus: String,
-        onSuccess: () -> Unit,
+        onSuccess: (OrderDto) -> Unit,
         onError: (String) -> Unit
     ) {
+        if (userId.isBlank()) return onError("Invalid user ID")
         if (orderId.isBlank()) return onError("Invalid order ID")
         if (newStatus.isBlank()) return onError("Status cannot be empty")
 
-        firestore.collectionGroup("orders")
-            .whereEqualTo("orderId", orderId)
-            .limit(1)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val doc = snapshot.documents.firstOrNull()
-                if (doc == null) {
+        val orderRef = firestore.collection("users")
+            .document(userId)
+            .collection("orders")
+            .document(orderId)
+
+        orderRef.get()
+            .addOnSuccessListener { doc ->
+                val current = doc.toObject(OrderDto::class.java)
+                if (!doc.exists() || current == null) {
                     onError("Order not found")
                     return@addOnSuccessListener
                 }
-                doc.reference.update(
+
+                val now = Timestamp.now()
+                orderRef.update(
                     mapOf(
                         "status" to newStatus,
-                        "updatedAt" to Timestamp.now()
+                        "updatedAt" to now
                     )
-                )
-                    .addOnSuccessListener { onSuccess() }
-                    .addOnFailureListener { onError(it.message ?: "Failed to update status") }
+                ).addOnSuccessListener {
+                    onSuccess(current.copy(status = newStatus, updatedAt = now))
+                }.addOnFailureListener { onError(it.message ?: "Failed to update status") }
             }
-            .addOnFailureListener { onError(it.message ?: "Failed to find order") }
+            .addOnFailureListener { onError(it.message ?: "Failed to fetch order") }
     }
 
     fun cancelOrder(

@@ -56,8 +56,6 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                 userMessage = "Your order was placed successfully!"
                 isLoading = false
                 isPlacingOrder = false
-
-
                 onSuccess(orderId)
             },
             onError = { error ->
@@ -85,17 +83,21 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    fun updateOrderStatus(orderId: String, newStatus: String) {
+    fun updateOrderStatus(userId: String, orderId: String, newStatus: String) {
         isLoading = true
         errorMessage = null
         orderRepository.updateOrderStatus(
+            userId = userId,
             orderId = orderId,
             newStatus = newStatus,
-            onSuccess = {
-                orders = orders.map { if (it.orderId == orderId) it.copy(status = newStatus) else it }
+            onSuccess = { updatedOrder ->
+                orders = orders.map {
+                    if (it.orderId == orderId) it.copy(status = newStatus, updatedAt = updatedOrder.updatedAt) else it
+                }
                 userMessage = "Order status updated"
                 NotificationHelper.notifyOrderStatusUpdated(getApplication(), orderId, newStatus)
                 notificationRepository.createOrderNotification(
+                    userId = updatedOrder.userId,
                     title = "Order status updated",
                     message = "Order #$orderId is now $newStatus",
                     orderId = orderId,

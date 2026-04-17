@@ -62,7 +62,6 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
     }
 
     NavHost(navController = navController, startDestination = startDestination) {
-
         composable(GiftHubDestinations.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -121,8 +120,7 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
             )
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty()
-            val categoryName =
-                Uri.decode(backStackEntry.arguments?.getString("categoryName").orEmpty())
+            val categoryName = Uri.decode(backStackEntry.arguments?.getString("categoryName").orEmpty())
             ProductsScreen(
                 currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
@@ -215,9 +213,6 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
             )
         }
 
-        // BUG FIX: This composable previously just called navController.popBackStack(), meaning
-        // navigating to any order's detail page would immediately go back with no screen shown.
-        // It now correctly renders OrderDetailsScreen with the given orderId.
         composable(
             route = GiftHubDestinations.ORDER_DETAILS,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
@@ -226,7 +221,8 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
             OrderDetailsScreen(
                 orderId = orderId,
                 onBack = { navController.popBackStack() },
-                orderViewModel = orderViewModel
+                orderViewModel = orderViewModel,
+                isEmployee = authViewModel.currentUserRole == "employee"
             )
         }
 
