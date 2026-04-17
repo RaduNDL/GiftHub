@@ -83,21 +83,42 @@ class ProductRepository {
             .addOnFailureListener { onError(it.message ?: "Failed to add product") }
     }
 
-    fun updateProduct(product: ProductDto, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun updateProduct(product: ProductDto, oldProduct: ProductDto?, onSuccess: () -> Unit, onError: (String) -> Unit) {
         if (product.idProduct.isBlank()) {
             onError("Invalid product id")
+            return
+        }
+
+        val changed = oldProduct == null ||
+                oldProduct.name != product.name ||
+                oldProduct.description != product.description ||
+                oldProduct.price != product.price ||
+                oldProduct.stock != product.stock ||
+                oldProduct.categoryId != product.categoryId ||
+                oldProduct.imageUrl != product.imageUrl ||
+                oldProduct.active != product.active
+
+        if (!changed) {
+            onSuccess()
             return
         }
 
         collection.document(product.idProduct)
             .set(product)
             .addOnSuccessListener {
+                val message = if (oldProduct != null && oldProduct.price != product.price) {
+                    "${product.name} price changed from $${"%.2f".format(oldProduct.price)} to $${"%.2f".format(product.price)}"
+                } else {
+                    "${product.name} was updated"
+                }
+
                 broadcastInAppNotificationToAllUsers(
                     title = "Product updated",
-                    message = "${product.name} was updated",
+                    message = message,
                     type = "product_update",
                     targetRoute = GiftHubDestinations.PRODUCTS
                 )
+
                 onSuccess()
             }
             .addOnFailureListener { onError(it.message ?: "Failed to update product") }

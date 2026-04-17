@@ -1,105 +1,69 @@
 package com.example.gifthub.screens.notifications
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
-import com.example.gifthub.repositories.NotificationRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.messaging.FirebaseMessagingService
-import com.google.firebase.messaging.RemoteMessage
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.example.gifthub.R
 
-class GiftHubMessagingService : FirebaseMessagingService() {
+object GiftHubMessagingService {
+    private const val CHANNEL_ID = "gifthub_local_channel"
+    private val lastShownByKey = mutableMapOf<String, Long>()
+    private const val DEDUP_WINDOW_MS = 45_000L
 
-    override fun onNewToken(token: String) {
-        super.onNewToken(token)
-        saveToken(token)
+    private fun shouldShow(key: String): Boolean {
+        val now = System.currentTimeMillis()
+        val last = lastShownByKey[key] ?: 0L
+        if (now - last < DEDUP_WINDOW_MS) return false
+        lastShownByKey[key] = now
+        return true
     }
 
-    override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        super.onMessageReceived(remoteMessage)
-
-        val data = remoteMessage.data
-        val notification = remoteMessage.notification
-
-        val title = data["title"] ?: notification?.title ?: "GiftHub"
-        val message = data["message"] ?: notification?.body ?: "You have a new notification"
-        val type = data["type"] ?: "general"
-        val route = data["targetRoute"] ?: ""
-        val orderId = data["orderId"] ?: ""
-        val id = (data["id"] ?: System.currentTimeMillis().toString()).hashCode()
-
-        val channel = when (type.lowercase()) {
-            "product", "product_update", "review_update" -> NotificationHelper.CHANNEL_ID_PRODUCTS
-            "order", "order_update" -> NotificationHelper.CHANNEL_ID_ORDERS
-            "promotion" -> NotificationHelper.CHANNEL_ID_PROMOTIONS
-            else -> NotificationHelper.CHANNEL_ID_GENERAL
-        }
-
-        NotificationHelper.show(
-            context = this,
-            channelId = channel,
-            title = title,
-            message = message,
-            targetRoute = route,
-            notificationId = id
-        )
-
-        savePushToNotificationHistory(
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = route,
-            orderId = orderId
-        )
-    }
-
-    private fun savePushToNotificationHistory(
+    fun showLocalNotification(
+        context: Context,
         title: String,
         message: String,
-        type: String,
-        targetRoute: String,
-        orderId: String
+        notificationId: Int,
+        dedupKey: String = "$title|$message"
     ) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (!shouldShow(dedupKey)) return
 
-        NotificationRepository().createNotification(
-            userId = uid,
-            title = title,
-            message = message,
-            type = type,
-            targetRoute = targetRoute,
-            orderId = orderId
-        )
-    }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
 
-    private fun saveToken(token: String) {
-        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val db = FirebaseFirestore.getInstance()
-        val userRef = db.collection("users").document(uid)
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val updates = mapOf(
-            "fcmToken" to token,
-            "fcmTokens.$token" to true,
-            "lastTokenRefreshAt" to FieldValue.serverTimestamp()
-        )
-
-        userRef.set(updates, com.google.firebase.firestore.SetOptions.merge())
-    }
-
-    companion object {
-        fun showLocalNotification(
-            context: Context,
-            title: String,
-            message: String,
-            notificationId: Int
-        ) {
-            NotificationHelper.show(
-                context = context,
-                channelId = NotificationHelper.CHANNEL_ID_GENERAL,
-                title = title,
-                message = message,
-                notificationId = notificationId
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "GiftHub Notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
             )
+            manager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        try {
+            NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (_: SecurityException) {
         }
     }
 }

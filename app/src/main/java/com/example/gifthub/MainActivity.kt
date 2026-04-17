@@ -12,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.gifthub.navigation.GiftHubNavGraph
 import com.example.gifthub.screens.notifications.NotificationHelper
-import com.example.gifthub.screens.notifications.NotificationRealtimeListener
 import com.example.gifthub.screens.notifications.PushTokenManager
 import com.example.gifthub.ui.theme.GiftHubTheme
 import com.google.firebase.FirebaseApp
@@ -37,8 +36,6 @@ class MainActivity : ComponentActivity() {
         PushTokenManager.subscribeDefaultTopics()
         requestNotificationPermissionIfNeeded()
 
-        NotificationRealtimeListener.start(this)
-
         NotificationHelper.extractTargetRoute(intent)?.let {
             _notificationRouteFlow.tryEmit(it)
         }
@@ -56,11 +53,6 @@ class MainActivity : ComponentActivity() {
         NotificationHelper.extractTargetRoute(intent)?.let {
             _notificationRouteFlow.tryEmit(it)
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        NotificationRealtimeListener.stop()
     }
 
     private fun requestNotificationPermissionIfNeeded() {

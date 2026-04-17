@@ -130,7 +130,9 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
         isLoading = true
         errorMessage = null
 
-        val createdAtValue = selectedProduct?.createdAt ?: System.currentTimeMillis()
+        val oldProduct = selectedProduct
+        val createdAtValue = oldProduct?.createdAt ?: System.currentTimeMillis()
+
         val product = ProductDto(
             idProduct = productId,
             name = name.trim(),
@@ -139,16 +141,30 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
             stock = stock,
             categoryId = categoryIdStr.trim(),
             imageUrl = imageUrl.trim(),
-            active = selectedProduct?.active ?: true,
+            active = oldProduct?.active ?: true,
             createdAt = createdAtValue,
             updatedAt = System.currentTimeMillis()
         )
 
         repository.updateProduct(
             product = product,
+            oldProduct = oldProduct,
             onSuccess = {
                 isLoading = false
-                NotificationHelper.notifyProductUpdated(getApplication(), product.name)
+
+                val shouldNotifyLocal = oldProduct == null ||
+                        oldProduct.name != product.name ||
+                        oldProduct.description != product.description ||
+                        oldProduct.price != product.price ||
+                        oldProduct.stock != product.stock ||
+                        oldProduct.categoryId != product.categoryId ||
+                        oldProduct.imageUrl != product.imageUrl ||
+                        oldProduct.active != product.active
+
+                if (shouldNotifyLocal) {
+                    NotificationHelper.notifyProductUpdated(getApplication(), product.name)
+                }
+
                 loadProducts()
                 onSuccess()
             },

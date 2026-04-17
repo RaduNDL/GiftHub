@@ -10,6 +10,7 @@ import com.example.gifthub.repositories.AuthRepository
 import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.UserRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
+import com.example.gifthub.screens.notifications.NotificationRealtimeListener
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.messaging.FirebaseMessaging
@@ -37,6 +38,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         checkUserRoleStatus()
+        if (isAuthenticated) {
+            NotificationRealtimeListener.start(getApplication())
+        }
     }
 
     private fun checkUserRoleStatus() {
@@ -99,12 +103,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         currentUserRole = "customer"
                         isLoading = false
                         isAuthenticated = true
-                        NotificationHelper.notifyRegister(getApplication(), firstName.trim())
-                        notificationRepository.createNotification(
-                            title = "Welcome",
-                            message = "Account created successfully, ${firstName.trim()}",
-                            type = "auth_register"
-                        )
+                        NotificationRealtimeListener.start(getApplication())
                     },
                     onError = { error ->
                         isLoading = false
@@ -151,12 +150,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         syncFcmToken(firebaseUser.uid)
                         isLoading = false
                         isAuthenticated = true
-                        NotificationHelper.notifyLogin(getApplication())
-                        notificationRepository.createNotification(
-                            title = "Welcome back",
-                            message = "Logged in successfully",
-                            type = "auth_login"
-                        )
+                        NotificationRealtimeListener.start(getApplication())
                     },
                     onError = { error ->
                         isLoading = false
@@ -208,12 +202,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
-        NotificationHelper.notifyLogout(getApplication())
-        notificationRepository.createNotification(
-            title = "Logged out",
-            message = "You have been logged out",
-            type = "auth_logout"
-        )
+        NotificationRealtimeListener.stop()
         authRepository.logout()
         isAuthenticated = false
         currentUserRole = null

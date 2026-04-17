@@ -99,7 +99,6 @@ fun EditProductScreen(
             stockStr = it.stock.toString()
             imageUrl = it.imageUrl
             selectedCategoryId = it.categoryId
-
             baselinePrice = it.price
             baselineName = it.name
         }
@@ -112,33 +111,19 @@ fun EditProductScreen(
 
     Scaffold { paddingValues ->
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
             color = MaterialTheme.colorScheme.background
         ) {
             if (viewModel.isLoading && product == null) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Color(0xFFFF6B35))
                 }
             } else {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(24.dp)
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    ) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 32.dp)) {
+                        IconButton(onClick = onBack, modifier = Modifier.padding(end = 8.dp)) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
@@ -166,12 +151,7 @@ fun EditProductScreen(
                         onValueChange = { name = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Product Name") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.Label,
-                                contentDescription = null
-                            )
-                        },
+                        leadingIcon = { Icon(imageVector = Icons.AutoMirrored.Outlined.Label, contentDescription = null) },
                         shape = RoundedCornerShape(16.dp),
                         singleLine = true
                     )
@@ -183,12 +163,7 @@ fun EditProductScreen(
                         onValueChange = { description = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Description") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Description,
-                                contentDescription = null
-                            )
-                        },
+                        leadingIcon = { Icon(imageVector = Icons.Outlined.Description, contentDescription = null) },
                         shape = RoundedCornerShape(16.dp),
                         minLines = 3,
                         maxLines = 5
@@ -201,32 +176,20 @@ fun EditProductScreen(
                         onValueChange = { imageUrl = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Image URL") },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Image,
-                                contentDescription = null
-                            )
-                        },
+                        leadingIcon = { Icon(imageVector = Icons.Outlined.Image, contentDescription = null) },
                         shape = RoundedCornerShape(16.dp),
                         singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         OutlinedTextField(
                             value = priceStr,
                             onValueChange = { priceStr = it },
                             modifier = Modifier.weight(1f),
                             label = { Text("Price ($)") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.AttachMoney,
-                                    contentDescription = null
-                                )
-                            },
+                            leadingIcon = { Icon(imageVector = Icons.Outlined.AttachMoney, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true
@@ -237,12 +200,7 @@ fun EditProductScreen(
                             onValueChange = { stockStr = it },
                             modifier = Modifier.weight(1f),
                             label = { Text("Stock (qty)") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.Inventory2,
-                                    contentDescription = null
-                                )
-                            },
+                            leadingIcon = { Icon(imageVector = Icons.Outlined.Inventory2, contentDescription = null) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             shape = RoundedCornerShape(16.dp),
                             singleLine = true
@@ -259,19 +217,10 @@ fun EditProductScreen(
                             value = selectedCategoryName,
                             onValueChange = {},
                             readOnly = true,
-                            modifier = Modifier
-                                .menuAnchor(MenuAnchorType.PrimaryEditable)
-                                .fillMaxWidth(),
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth(),
                             label = { Text("Category") },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.Category,
-                                    contentDescription = null
-                                )
-                            },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded)
-                            },
+                            leadingIcon = { Icon(imageVector = Icons.Outlined.Category, contentDescription = null) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                             shape = RoundedCornerShape(16.dp)
                         )
 
@@ -298,9 +247,7 @@ fun EditProductScreen(
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer,
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 16.dp)
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                         ) {
                             Text(
                                 text = message,
@@ -329,24 +276,22 @@ fun EditProductScreen(
                                 if (oldPrice != null && newPrice != null && oldPrice != newPrice) {
                                     val direction = if (newPrice < oldPrice) "dropped" else "updated"
                                     val emoji = if (newPrice < oldPrice) "🔥" else "📦"
+                                    val dedup = "price_change_${productId}_${"%.2f".format(newPrice)}"
                                     GiftHubMessagingService.showLocalNotification(
                                         context = context,
                                         title = "$emoji Price $direction!",
                                         message = "\"$originalProductName\" is now $${"%.2f".format(newPrice)} (was $${"%.2f".format(oldPrice)})",
-                                        notificationId = ("price_change_$productId").hashCode()
+                                        notificationId = ("price_change_$productId").hashCode(),
+                                        dedupKey = dedup
                                     )
                                 }
                                 onBack()
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         enabled = !viewModel.isLoading && name.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6B35)
-                        )
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6B35))
                     ) {
                         if (viewModel.isLoading) {
                             CircularProgressIndicator(
@@ -355,11 +300,7 @@ fun EditProductScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                "Updating...",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = Color.White
-                            )
+                            Text("Updating...", style = MaterialTheme.typography.titleMedium, color = Color.White)
                         } else {
                             Text(
                                 "Update Product",
