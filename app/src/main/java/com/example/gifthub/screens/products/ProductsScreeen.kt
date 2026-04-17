@@ -101,7 +101,6 @@ fun ProductsScreen(
     val categories = categoryViewModel.categoriesList
     val favoriteIds = favoriteViewModel.favoriteProductIds
 
-
     LaunchedEffect(Unit) {
         productViewModel.loadProducts()
         categoryViewModel.loadCategories()
@@ -248,7 +247,6 @@ fun ProductsScreen(
                     }
                 }
 
-
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
                         Text(
@@ -265,7 +263,6 @@ fun ProductsScreen(
                             letterSpacing = 0.5.sp,
                             modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
                         )
-
 
                         Box(
                             modifier = Modifier
@@ -307,7 +304,6 @@ fun ProductsScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -343,7 +339,6 @@ fun ProductsScreen(
                                     )
                                 }
                             }
-
 
                             Box(
                                 modifier = Modifier
@@ -437,7 +432,6 @@ fun ProductsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
-
 
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Column {
@@ -804,7 +798,6 @@ private fun ProductGridCard(
             }
         }
 
-        // Rating Badge - Display Decimal Ratings
         if (averageRating > 0) {
             Box(
                 modifier = Modifier

@@ -471,7 +471,6 @@ private fun DetailItem(
     }
 }
 
-// ✅ FIX: Înlocuit LazyColumn cu Column + verticalScroll în AlertDialog
 @Composable
 private fun OrderDetailsDialog(
     order: OrderDto,
@@ -492,7 +491,6 @@ private fun OrderDetailsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Order Info
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -528,7 +526,6 @@ private fun OrderDetailsDialog(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                // Items — forEach în loc de LazyColumn
                 order.items.forEach { item ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -565,7 +562,6 @@ private fun OrderDetailsDialog(
                     }
                 }
 
-                // Total
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -583,7 +579,6 @@ private fun OrderDetailsDialog(
                     )
                 }
 
-                // Shipping Address
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -606,7 +601,6 @@ private fun OrderDetailsDialog(
                     )
                 }
 
-                // Payment Method
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

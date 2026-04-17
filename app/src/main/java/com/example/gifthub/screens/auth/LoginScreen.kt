@@ -51,7 +51,6 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    var resetEmail by remember { mutableStateOf("") }
     var resetLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.isAuthenticated) {
@@ -103,7 +102,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Email Field
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -127,7 +125,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Password Field
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -150,7 +147,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Error Message
             viewModel.errorMessage?.let { message ->
                 Surface(
                     modifier = Modifier
@@ -170,7 +166,6 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Info Message
             viewModel.infoMessage?.let { message ->
                 Surface(
                     modifier = Modifier
@@ -190,7 +185,6 @@ fun LoginScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Login Button
             Button(
                 onClick = { viewModel.login(email, password) },
                 modifier = Modifier
@@ -208,7 +202,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Forgot Password Button
             TextButton(
                 onClick = { showResetDialog = true },
                 modifier = Modifier.fillMaxWidth()
@@ -222,7 +215,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Register Link
             TextButton(
                 onClick = onGoToRegister,
                 modifier = Modifier.fillMaxWidth()

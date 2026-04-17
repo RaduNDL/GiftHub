@@ -97,7 +97,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // First Name
             OutlinedTextField(
                 value = firstName,
                 onValueChange = { firstName = it },
@@ -110,7 +109,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Last Name
             OutlinedTextField(
                 value = lastName,
                 onValueChange = { lastName = it },
@@ -123,7 +121,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Email
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -147,7 +144,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Password
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -167,12 +163,10 @@ fun RegisterScreen(
                 }
             )
 
-            // Password Requirements
             PasswordRequirements(password)
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Confirm Password
             OutlinedTextField(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it },
@@ -203,7 +197,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Terms & Conditions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -221,7 +214,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Error Message
             viewModel.errorMessage?.let { message ->
                 Surface(
                     modifier = Modifier
@@ -241,7 +233,6 @@ fun RegisterScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Register Button
             Button(
                 onClick = {
                     viewModel.register(firstName, lastName, email, password)
@@ -270,7 +261,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Login Link
             TextButton(
                 onClick = onGoToLogin,
                 modifier = Modifier.fillMaxWidth()
@@ -311,11 +301,7 @@ private fun PasswordRequirement(text: String, isMet: Boolean) {
             imageVector = if (isMet) Icons.Default.Check else Icons.Default.Close,
             contentDescription = null,
             tint = if (isMet) Color(0xFF4CAF50) else Color(0xFFBDBDBD),
-            modifier = Modifier
-                .padding(end = 8.dp)
-                .then(
-                    if (!isMet) Modifier else Modifier
-                )
+            modifier = Modifier.padding(end = 8.dp)
         )
         Text(
             text = text,

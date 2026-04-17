@@ -49,7 +49,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gifthub.viewmodel.CategoryViewModel
 import com.example.gifthub.viewmodel.ProductViewModel
@@ -90,7 +89,6 @@ fun AddProductScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp)
             ) {
-                // Header
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(bottom = 32.dp)
@@ -121,7 +119,6 @@ fun AddProductScreen(
                     }
                 }
 
-                // Product Name
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -139,7 +136,6 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Description
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -158,7 +154,6 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Image URL
                 OutlinedTextField(
                     value = imageUrl,
                     onValueChange = { imageUrl = it },
@@ -177,7 +172,6 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Price & Stock
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -216,7 +210,6 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Category Dropdown
                 ExposedDropdownMenuBox(
                     expanded = categoryExpanded,
                     onExpandedChange = { categoryExpanded = !categoryExpanded }
@@ -260,7 +253,6 @@ fun AddProductScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Error Message
                 viewModel.errorMessage?.let { message ->
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -278,7 +270,6 @@ fun AddProductScreen(
                     }
                 }
 
-                // Save Button
                 Button(
                     onClick = {
                         if (selectedCategoryId.isBlank()) {

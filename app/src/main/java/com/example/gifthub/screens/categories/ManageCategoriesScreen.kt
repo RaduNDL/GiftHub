@@ -291,7 +291,6 @@ fun CategoryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category Image
             if (category.imageUrl.isNotBlank()) {
                 AsyncImage(
                     model = category.imageUrl,
@@ -322,7 +321,6 @@ fun CategoryCard(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Category Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = category.name,
@@ -341,7 +339,6 @@ fun CategoryCard(
                 )
             }
 
-            // Edit & Delete Buttons
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 IconButton(
                     onClick = onEdit,

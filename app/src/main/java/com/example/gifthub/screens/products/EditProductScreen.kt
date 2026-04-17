@@ -131,7 +131,6 @@ fun EditProductScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(24.dp)
                 ) {
-                    // Header
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 32.dp)
@@ -162,7 +161,6 @@ fun EditProductScreen(
                         }
                     }
 
-                    // Product Name
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -180,7 +178,6 @@ fun EditProductScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Description
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
@@ -199,7 +196,6 @@ fun EditProductScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Image URL
                     OutlinedTextField(
                         value = imageUrl,
                         onValueChange = { imageUrl = it },
@@ -217,7 +213,6 @@ fun EditProductScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Price & Stock
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -256,7 +251,6 @@ fun EditProductScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Category Dropdown
                     ExposedDropdownMenuBox(
                         expanded = categoryExpanded,
                         onExpandedChange = { categoryExpanded = !categoryExpanded }
@@ -300,7 +294,6 @@ fun EditProductScreen(
 
                     Spacer(modifier = Modifier.height(40.dp))
 
-                    // Error Message
                     viewModel.errorMessage?.let { message ->
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer,
@@ -318,7 +311,6 @@ fun EditProductScreen(
                         }
                     }
 
-                    // Update Button
                     Button(
                         onClick = {
                             val oldPrice = product?.price
@@ -334,7 +326,6 @@ fun EditProductScreen(
                                 categoryIdStr = selectedCategoryId,
                                 imageUrl = imageUrl
                             ) {
-                                // Show notification if price changed
                                 if (oldPrice != null && newPrice != null && oldPrice != newPrice) {
                                     val direction = if (newPrice < oldPrice) "dropped" else "updated"
                                     val emoji = if (newPrice < oldPrice) "🔥" else "📦"
