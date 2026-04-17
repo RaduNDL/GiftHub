@@ -5,6 +5,8 @@ import com.example.gifthub.models.ProductDto
 import com.example.gifthub.models.ShoppingCartDto
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class CartRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -141,18 +143,35 @@ class CartRepository {
             .addOnFailureListener { onError(it.message ?: "Error removing item") }
     }
 
+
     fun clearCart(onSuccess: () -> Unit, onError: (String) -> Unit) {
         val uid = auth.currentUser?.uid ?: return onError("User not authenticated")
 
         cartItemsRef(uid).get()
             .addOnSuccessListener { snapshot ->
-                var deleted = 0
+                val total = snapshot.documents.size
+
+                if (total == 0) {
+                    onSuccess()
+                    return@addOnSuccessListener
+                }
+
+                val deletedCount = AtomicInteger(0)
+                val hasFailed = AtomicBoolean(false)
+
                 snapshot.documents.forEach { doc ->
                     cartItemsRef(uid).document(doc.id).delete()
-                        .addOnSuccessListener { deleted++ }
-                        .addOnFailureListener { return@addOnFailureListener onError(it.message ?: "Error clearing cart") }
+                        .addOnSuccessListener {
+                            if (deletedCount.incrementAndGet() == total && !hasFailed.get()) {
+                                onSuccess()
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            if (hasFailed.compareAndSet(false, true)) {
+                                onError(e.message ?: "Error clearing cart")
+                            }
+                        }
                 }
-                if (deleted == snapshot.documents.size) onSuccess()
             }
             .addOnFailureListener { onError(it.message ?: "Error fetching cart") }
     }

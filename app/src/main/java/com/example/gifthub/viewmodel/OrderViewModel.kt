@@ -7,14 +7,12 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import com.example.gifthub.models.OrderDto
 import com.example.gifthub.models.ShoppingCartDto
-import com.example.gifthub.repositories.CartRepository
 import com.example.gifthub.repositories.NotificationRepository
 import com.example.gifthub.repositories.OrderRepository
 import com.example.gifthub.screens.notifications.NotificationHelper
 
 class OrderViewModel(application: Application) : AndroidViewModel(application) {
     private val orderRepository = OrderRepository()
-    private val cartRepository = CartRepository()
     private val notificationRepository = NotificationRepository()
 
     var orders by mutableStateOf<List<OrderDto>>(emptyList())
@@ -58,12 +56,9 @@ class OrderViewModel(application: Application) : AndroidViewModel(application) {
                 userMessage = "Your order was placed successfully!"
                 isLoading = false
                 isPlacingOrder = false
-                onSuccess(orderId)
 
-                cartRepository.clearCart(
-                    onSuccess = {},
-                    onError = {}
-                )
+
+                onSuccess(orderId)
             },
             onError = { error ->
                 isLoading = false

@@ -3,7 +3,6 @@ package com.example.gifthub.navigation
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -23,6 +22,7 @@ import com.example.gifthub.screens.checkout.CheckoutScreen
 import com.example.gifthub.screens.favorites.FavoritesScreen
 import com.example.gifthub.screens.home.HomeScreen
 import com.example.gifthub.screens.notifications.NotificationsScreen
+import com.example.gifthub.screens.orders.OrderDetailsScreen
 import com.example.gifthub.screens.orders.OrderHistoryScreen
 import com.example.gifthub.screens.payments.SavedPaymentsScreen
 import com.example.gifthub.screens.products.AddProductScreen
@@ -50,7 +50,8 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val normalizedCurrentRoute = currentBackStackEntry?.destination.normalizedRoute()
 
-    val startDestination = if (authViewModel.isAuthenticated) GiftHubDestinations.HOME else GiftHubDestinations.LOGIN
+    val startDestination =
+        if (authViewModel.isAuthenticated) GiftHubDestinations.HOME else GiftHubDestinations.LOGIN
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         notificationRouteFlow.collect { route ->
@@ -120,7 +121,8 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
             )
         ) { backStackEntry ->
             val categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty()
-            val categoryName = Uri.decode(backStackEntry.arguments?.getString("categoryName").orEmpty())
+            val categoryName =
+                Uri.decode(backStackEntry.arguments?.getString("categoryName").orEmpty())
             ProductsScreen(
                 currentRoute = GiftHubDestinations.PRODUCTS,
                 onNavigate = { destination ->
@@ -196,7 +198,9 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
                 },
                 onBack = {
                     val popped = navController.popBackStack()
-                    if (!popped) navController.navigate(GiftHubDestinations.CART) { launchSingleTop = true }
+                    if (!popped) navController.navigate(GiftHubDestinations.CART) {
+                        launchSingleTop = true
+                    }
                 },
                 cartViewModel = cartViewModel,
                 orderViewModel = orderViewModel
@@ -206,15 +210,24 @@ fun GiftHubNavGraph(notificationRouteFlow: SharedFlow<String>) {
         composable(GiftHubDestinations.ORDER_HISTORY) {
             OrderHistoryScreen(
                 onBack = { navController.popBackStack() },
+                isEmployee = authViewModel.currentUserRole == "employee",
                 orderViewModel = orderViewModel
             )
         }
 
+        // BUG FIX: This composable previously just called navController.popBackStack(), meaning
+        // navigating to any order's detail page would immediately go back with no screen shown.
+        // It now correctly renders OrderDetailsScreen with the given orderId.
         composable(
             route = GiftHubDestinations.ORDER_DETAILS,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
-        ) {
-            navController.popBackStack()
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+            OrderDetailsScreen(
+                orderId = orderId,
+                onBack = { navController.popBackStack() },
+                orderViewModel = orderViewModel
+            )
         }
 
         composable(GiftHubDestinations.FAVORITES) {
@@ -274,6 +287,7 @@ private fun handleNavigation(
                 launchSingleTop = true
             }
         }
+
         GiftHubDestinations.HOME,
         GiftHubDestinations.PRODUCTS,
         GiftHubDestinations.CART,
@@ -283,6 +297,7 @@ private fun handleNavigation(
         GiftHubDestinations.ORDER_HISTORY,
         GiftHubDestinations.MANAGE_ADDRESS,
         GiftHubDestinations.SAVED_PAYMENTS -> navigateToTopLevel(navController, destination)
+
         else -> navController.navigate(destination) { launchSingleTop = true }
     }
 }
