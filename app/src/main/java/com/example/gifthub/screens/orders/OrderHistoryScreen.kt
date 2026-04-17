@@ -1,3 +1,5 @@
+@file:Suppress("SpellCheckingInspection")
+
 package com.example.gifthub.screens.orders
 
 import androidx.compose.animation.core.LinearEasing
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,11 +62,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -95,8 +96,7 @@ fun OrderHistoryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    var selectedOrder by remember { mutableStateOf<OrderDto?>(null) }
-    var showOrderDetails by remember { mutableStateOf(false) }
+    val (selectedOrder, setSelectedOrder) = remember { mutableStateOf<OrderDto?>(null) }
 
     LaunchedEffect(isEmployee) {
         orderViewModel.loadOrders(isEmployee = isEmployee)
@@ -120,10 +120,10 @@ fun OrderHistoryScreen(
         }
     }
 
-    if (showOrderDetails && selectedOrder != null) {
+    selectedOrder?.let { dialogOrder ->
         OrderDetailsDialog(
-            order = selectedOrder!!,
-            onDismiss = { showOrderDetails = false; selectedOrder = null }
+            order = dialogOrder,
+            onDismiss = { setSelectedOrder(null) }
         )
     }
 
@@ -170,7 +170,9 @@ fun OrderHistoryScreen(
         }
     ) { paddingValues ->
         Surface(
-            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             color = MaterialTheme.colorScheme.background
         ) {
             when {
@@ -189,7 +191,7 @@ fun OrderHistoryScreen(
                             .navigationBarsPadding()
                             .padding(horizontal = 20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 16.dp)
+                        contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
                         item { OrdersSummaryCard(orderCount = orders.size, isEmployee = isEmployee) }
 
@@ -198,8 +200,8 @@ fun OrderHistoryScreen(
                                 order = order,
                                 isEmployee = isEmployee,
                                 isUpdating = orderViewModel.isLoading,
-                                onViewDetails = { selectedOrder = order; showOrderDetails = true },
-                                onStatusChange = { newStatus ->
+                                onViewDetails = { setSelectedOrder(order) },
+                                onStatusChange = { newStatus: String ->
                                     orderViewModel.updateOrderStatus(order.userId, order.orderId, newStatus)
                                 }
                             )
@@ -219,7 +221,7 @@ private fun RefreshIconButton(
     onClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "refresh_rotation")
-    val rotation by infiniteTransition.animateFloat(
+    val rotation = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -227,7 +229,7 @@ private fun RefreshIconButton(
             repeatMode = RepeatMode.Restart
         ),
         label = "refresh_rotation_angle"
-    )
+    ).value
 
     IconButton(onClick = onClick, enabled = !isLoading) {
         Icon(
@@ -248,9 +250,8 @@ fun OrderDetailsScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-    var showCancelDialog by remember { mutableStateOf(false) }
-    var showStatusUpdateDialog by remember { mutableStateOf(false) }
-    var pendingStatus by remember { mutableStateOf("") }
+    val (showCancelDialog, setShowCancelDialog) = remember { mutableStateOf(false) }
+    val (pendingStatus, setPendingStatus) = remember { mutableStateOf<String?>(null) }
 
     val order: OrderDto? = orderViewModel.orders.firstOrNull { it.orderId == orderId }
 
@@ -274,41 +275,44 @@ fun OrderDetailsScreen(
         }
     }
 
-    if (showStatusUpdateDialog) {
+    pendingStatus?.let { targetStatus ->
         AlertDialog(
-            onDismissRequest = { showStatusUpdateDialog = false },
+            onDismissRequest = { setPendingStatus(null) },
             title = { Text("Update Order Status", fontWeight = FontWeight.Bold) },
             text = {
-                Text("Change order #${order?.orderId?.take(8)?.uppercase()} status to \"$pendingStatus\"?\n\nThe customer will receive a push notification about this change.")
+                Text("Change order #${order?.orderId?.take(8)?.uppercase()} status to \"$targetStatus\"?\n\nThe customer will receive a push notification about this change.")
             },
             confirmButton = {
                 Button(
                     onClick = {
                         if (order != null) {
-                            orderViewModel.updateOrderStatus(order.userId, orderId, pendingStatus)
+                            orderViewModel.updateOrderStatus(order.userId, orderId, targetStatus)
                         }
-                        showStatusUpdateDialog = false
+                        setPendingStatus(null)
                     }
                 ) { Text("Confirm & Notify") }
             },
             dismissButton = {
-                TextButton(onClick = { showStatusUpdateDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { setPendingStatus(null) }) { Text("Cancel") }
             }
         )
     }
 
     if (showCancelDialog) {
         AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
+            onDismissRequest = { setShowCancelDialog(false) },
             title = { Text("Cancel Order", fontWeight = FontWeight.Bold) },
             text = { Text("Are you sure you want to cancel this order? This cannot be undone.") },
             confirmButton = {
                 Button(
-                    onClick = { showCancelDialog = false; orderViewModel.cancelOrder(orderId) },
+                    onClick = {
+                        setShowCancelDialog(false)
+                        orderViewModel.cancelOrder(orderId)
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Yes, Cancel") }
             },
-            dismissButton = { TextButton(onClick = { showCancelDialog = false }) { Text("Keep Order") } }
+            dismissButton = { TextButton(onClick = { setShowCancelDialog(false) }) { Text("Keep Order") } }
         )
     }
 
@@ -317,7 +321,10 @@ fun OrderDetailsScreen(
         topBar = {
             Surface(tonalElevation = 3.dp, shadowElevation = 4.dp) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 10.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
@@ -326,7 +333,11 @@ fun OrderDetailsScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Order Details", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         if (order != null) {
-                            Text("#${order.orderId.take(8).uppercase()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "#${order.orderId.take(8).uppercase()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                     RefreshIconButton(
@@ -337,9 +348,16 @@ fun OrderDetailsScreen(
             }
         }
     ) { paddingValues ->
-        Surface(modifier = Modifier.fillMaxSize().padding(paddingValues), color = MaterialTheme.colorScheme.background) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            color = MaterialTheme.colorScheme.background
+        ) {
             if (orderViewModel.isLoading && order == null) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else if (order == null) {
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Text("Order not found.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -347,17 +365,28 @@ fun OrderDetailsScreen(
             } else {
                 val statusColors = statusBannerColors(order.status)
                 Column(
-                    modifier = Modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .navigationBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().background(statusColors.first, RoundedCornerShape(16.dp)).padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(statusColors.first, RoundedCornerShape(16.dp))
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(order.status, color = statusColors.second, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     }
 
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             DetailInfoRow("Order ID", order.orderId.take(8).uppercase())
                             DetailInfoRow("Date", formatDate(order.createdAt))
@@ -368,7 +397,11 @@ fun OrderDetailsScreen(
                     Text("Items (${order.items.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     order.items.forEach { item -> DetailItemCard(item = item) }
 
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Subtotal", style = MaterialTheme.typography.bodyMedium)
@@ -379,7 +412,12 @@ fun OrderDetailsScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text("$${String.format(Locale.US, "%.2f", order.totalAmount)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    "$${String.format(Locale.US, "%.2f", order.totalAmount)}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
                         }
                     }
@@ -410,16 +448,15 @@ fun OrderDetailsScreen(
                         EmployeeStatusPanel(
                             currentStatus = order.status,
                             isUpdating = orderViewModel.isLoading,
-                            onStatusChange = { newStatus ->
-                                pendingStatus = newStatus
-                                showStatusUpdateDialog = true
+                            onStatusChange = { newStatus: String ->
+                                setPendingStatus(newStatus)
                             }
                         )
                     }
 
                     if (order.status.equals("Pending", ignoreCase = true) && !isEmployee) {
                         Button(
-                            onClick = { showCancelDialog = true },
+                            onClick = { setShowCancelDialog(true) },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -443,22 +480,22 @@ private fun EmployeeStatusPanel(
     isUpdating: Boolean,
     onStatusChange: (String) -> Unit
 ) {
-    var showConfirmDialog by remember { mutableStateOf(false) }
-    var pendingStatus by remember { mutableStateOf("") }
+    val (showConfirmDialog, setShowConfirmDialog) = remember { mutableStateOf(false) }
+    val (pendingStatus, setPendingStatus) = remember { mutableStateOf("") }
 
     if (showConfirmDialog) {
         AlertDialog(
-            onDismissRequest = { showConfirmDialog = false },
+            onDismissRequest = { setShowConfirmDialog(false) },
             title = { Text("Update Status", fontWeight = FontWeight.Bold) },
             text = { Text("Change order status to \"$pendingStatus\"?") },
             confirmButton = {
                 Button(onClick = {
                     onStatusChange(pendingStatus)
-                    showConfirmDialog = false
+                    setShowConfirmDialog(false)
                 }) { Text("Confirm") }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { setShowConfirmDialog(false) }) { Text("Cancel") }
             }
         )
     }
@@ -489,8 +526,8 @@ private fun EmployeeStatusPanel(
                     selected = isSelected,
                     onClick = {
                         if (!isSelected && !isUpdating) {
-                            pendingStatus = status
-                            showConfirmDialog = true
+                            setPendingStatus(status)
+                            setShowConfirmDialog(true)
                         }
                     },
                     label = {
@@ -697,7 +734,7 @@ private fun HistoryDetailItem(icon: ImageVector, label: String, value: String) {
 
 @Composable
 private fun OrderDetailsDialog(order: OrderDto, onDismiss: () -> Unit) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Order Details", fontWeight = FontWeight.Bold) },
         text = {
@@ -786,7 +823,12 @@ private fun EmptyOrdersState() {
             Spacer(modifier = Modifier.size(16.dp))
             Text("No Orders Yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.size(8.dp))
-            Text("Start shopping to see your order history here", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(
+                "Start shopping to see your order history here",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
         }
     }
 }
@@ -807,7 +849,11 @@ private fun DetailItemCard(item: CartItemDto) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 Text("$${String.format(Locale.US, "%.2f", item.price)} each", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
