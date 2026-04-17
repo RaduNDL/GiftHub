@@ -1,5 +1,6 @@
 package com.example.gifthub.ui.redeem
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -17,7 +18,7 @@ class RedeemGiftViewModel : ViewModel() {
         private set
 
     suspend fun redeemByCode(codeInput: String): Boolean {
-        val code = codeInput.trim()
+        val code = normalizeCode(codeInput)
         if (code.isBlank()) {
             message = "Please enter a voucher code."
             return false
@@ -36,11 +37,15 @@ class RedeemGiftViewModel : ViewModel() {
             val db = FirebaseFirestore.getInstance()
             val now = System.currentTimeMillis()
 
+            Log.d("RedeemDebug", "Input=[$codeInput] | Normalized=[$code] | userId=[$userId]")
+
             val query = db.collection("vouchers")
                 .whereEqualTo("code", code)
                 .limit(1)
                 .get()
                 .await()
+
+            Log.d("RedeemDebug", "Query result size=${query.documents.size}")
 
             if (query.documents.isEmpty()) {
                 message = "Invalid voucher code."
@@ -53,6 +58,11 @@ class RedeemGiftViewModel : ViewModel() {
             val status = voucherDoc.getString("status").orEmpty()
             val assignedUserId = voucherDoc.getString("assignedUserId").orEmpty()
             val expiresAt = voucherDoc.getLong("expiresAt") ?: 0L
+
+            Log.d(
+                "RedeemDebug",
+                "Voucher found id=[$voucherId] status=[$status] assignedUserId=[$assignedUserId] expiresAt=[$expiresAt]"
+            )
 
             if (status != "active") {
                 message = if (status == "redeemed") "Voucher already used." else "Voucher unavailable."
@@ -76,6 +86,7 @@ class RedeemGiftViewModel : ViewModel() {
                 val fresh = tr.get(voucherDoc.reference)
                 val freshStatus = fresh.getString("status").orEmpty()
                 val freshExpiresAt = fresh.getLong("expiresAt") ?: 0L
+                val freshAssignedUserId = fresh.getString("assignedUserId").orEmpty()
 
                 if (freshStatus != "active") {
                     throw IllegalStateException("Voucher already used.")
@@ -83,29 +94,39 @@ class RedeemGiftViewModel : ViewModel() {
                 if (freshExpiresAt in 1..now) {
                     throw IllegalStateException("Voucher expired.")
                 }
+                if (freshAssignedUserId.isNotBlank() && freshAssignedUserId != userId) {
+                    throw IllegalStateException("This voucher is assigned to another user.")
+                }
 
-                tr.update(voucherDoc.reference, mapOf(
-                    "status" to "redeemed",
-                    "updatedAt" to now,
-                    "redeemedBy" to userId,
-                    "redeemedAt" to now
-                ))
+                tr.update(
+                    voucherDoc.reference,
+                    mapOf(
+                        "status" to "redeemed",
+                        "updatedAt" to now,
+                        "redeemedBy" to userId,
+                        "redeemedAt" to now
+                    )
+                )
 
                 val redeemLogRef = db.collection("voucherRedeems").document()
-                tr.set(redeemLogRef, mapOf(
-                    "redeemId" to redeemLogRef.id,
-                    "voucherId" to voucherId,
-                    "voucherCode" to code,
-                    "userId" to userId,
-                    "redeemedAt" to now,
-                    "status" to "success",
-                    "reason" to "ok"
-                ))
+                tr.set(
+                    redeemLogRef,
+                    mapOf(
+                        "redeemId" to redeemLogRef.id,
+                        "voucherId" to voucherId,
+                        "voucherCode" to code,
+                        "userId" to userId,
+                        "redeemedAt" to now,
+                        "status" to "success",
+                        "reason" to "ok"
+                    )
+                )
             }.await()
 
             message = "Voucher redeemed successfully!"
             true
         } catch (e: Exception) {
+            Log.e("RedeemDebug", "Redeem failed", e)
             message = e.message ?: "Redeem failed."
             false
         } finally {
@@ -115,5 +136,21 @@ class RedeemGiftViewModel : ViewModel() {
 
     fun clearMessage() {
         message = null
+    }
+
+    private fun normalizeCode(raw: String): String {
+        val input = raw.trim()
+
+        val urlRegex = Regex("""[?&]code=([^&]+)""")
+        urlRegex.find(input)?.let {
+            return it.groupValues[1].trim().uppercase()
+        }
+
+        val voucherRegex = Regex("""VOUCHER:([A-Za-z0-9\-_]+)""", RegexOption.IGNORE_CASE)
+        voucherRegex.find(input)?.let {
+            return it.groupValues[1].trim().uppercase()
+        }
+
+        return input.uppercase()
     }
 }
