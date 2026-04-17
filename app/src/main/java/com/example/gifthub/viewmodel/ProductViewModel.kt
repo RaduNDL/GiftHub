@@ -19,6 +19,7 @@ class ProductViewModel(application: Application) : AndroidViewModel(application)
     var errorMessage by mutableStateOf<String?>(null)
 
     fun loadProducts() {
+        selectedProduct = null
         isLoading = true
         errorMessage = null
         repository.getAllProducts(
